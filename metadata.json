@@ -1,0 +1,6 @@
+{
+  "name": "동반성장부 워크스페이스",
+  "description": "업무 일정 관리 및 AI 자동 보고 시스템",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
