@@ -395,8 +395,7 @@ async function startServer() {
       
       const files = fs.readdirSync(targetDir);
       const imageFiles = files.filter(f => 
-        (f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.webp')) &&
-        !f.includes('icon') && !f.includes('favicon')
+        /^([1-9]|1[0-9])\.png$/.test(f)
       );
       
       res.json({ images: imageFiles.map(f => `/${f}`) });
