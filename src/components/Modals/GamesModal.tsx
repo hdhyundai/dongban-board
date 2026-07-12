@@ -517,7 +517,7 @@ function MemoryGame({ onFinish }: { onFinish: (s: number) => void }) {
                 {" "}
                 {(c.flipped || c.matched) ? (
                   c.isImage ? (
-                    <img src={c.content} alt="card" className="w-[85%] h-[85%] object-cover rounded-full" />
+                    <img src={c.content} alt="card" className="w-[85%] h-[85%] object-cover rounded-full contrast-125 saturate-110 brightness-105" />
                   ) : (
                     c.content
                   )
