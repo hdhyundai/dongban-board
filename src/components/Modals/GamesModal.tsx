@@ -391,27 +391,55 @@ function ClickerGame({ onFinish }: { onFinish: (s: number) => void }) {
 const EMOJIS = ["🚢", "⚓", "🌊", "🏗️", "🔧", "👷", "📈", "🤝"];
 function MemoryGame({ onFinish }: { onFinish: (s: number) => void }) {
   const [cards, setCards] = useState<
-    { id: number; emoji: string; flipped: boolean; matched: boolean }[]
+    { id: number; content: string; isImage: boolean; flipped: boolean; matched: boolean }[]
   >([]);
   const [playing, setPlaying] = useState(false);
   const [flipped, setFlipped] = useState<number[]>([]);
   const startTimeRef = useRef(0);
   const [timeStr, setTimeStr] = useState("0.0");
   const timerRef = useRef<any>(null);
+  const [availableImages, setAvailableImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch('/api/memory-images')
+      .then(r => r.json())
+      .then(data => {
+        if (data.images) setAvailableImages(data.images);
+      })
+      .catch(console.error);
+  }, []);
+
   const startGame = () => {
-    const shuffled = [...EMOJIS, ...EMOJIS]
+    let selectedContent: { content: string, isImage: boolean }[] = [];
+    if (availableImages.length > 0) {
+      const shuffledImages = [...availableImages].sort(() => Math.random() - 0.5);
+      const toUse = shuffledImages.slice(0, 8);
+      let i = 0;
+      while (toUse.length < 8) {
+         toUse.push(toUse[i % toUse.length]);
+         i++;
+      }
+      selectedContent = toUse.map(img => ({ content: img, isImage: true }));
+    } else {
+      selectedContent = EMOJIS.map(emoji => ({ content: emoji, isImage: false }));
+    }
+
+    const shuffled = [...selectedContent, ...selectedContent]
       .sort(() => Math.random() - 0.5)
-      .map((emoji, idx) => ({
+      .map((item, idx) => ({
         id: idx,
-        emoji,
+        content: item.content,
+        isImage: item.isImage,
         flipped: false,
         matched: false,
       }));
+    
     setCards(shuffled);
     setPlaying(true);
     setFlipped([]);
     startTimeRef.current = Date.now();
   };
+
   useEffect(() => {
     if (!playing) return;
     const updateTime = () =>
@@ -419,6 +447,7 @@ function MemoryGame({ onFinish }: { onFinish: (s: number) => void }) {
     timerRef.current = setInterval(updateTime, 100);
     return () => clearInterval(timerRef.current);
   }, [playing]);
+
   const handleCardClick = (id: number) => {
     if (flipped.length === 2) return;
     if (cards[id].flipped || cards[id].matched) return;
@@ -429,7 +458,7 @@ function MemoryGame({ onFinish }: { onFinish: (s: number) => void }) {
     setFlipped(newFlipped);
     if (newFlipped.length === 2) {
       const [first, second] = newFlipped;
-      if (newCards[first].emoji === newCards[second].emoji) {
+      if (newCards[first].content === newCards[second].content) {
         newCards[first].matched = true;
         newCards[second].matched = true;
         setCards(newCards);
@@ -455,6 +484,7 @@ function MemoryGame({ onFinish }: { onFinish: (s: number) => void }) {
       }
     }
   };
+
   return (
     <div className="flex flex-col items-center w-full">
       {" "}
@@ -485,7 +515,13 @@ function MemoryGame({ onFinish }: { onFinish: (s: number) => void }) {
                 className={`w-14 h-14 sm:w-20 sm:h-20 flex items-center justify-center text-[24px] sm:text-[32px] rounded-[12px] cursor-pointer transition-all duration-300 transform ${c.flipped || c.matched ? "bg-blue-100 rotate-y-180" : "bg-[#1D1D1F] active:scale-95 hover:bg-gray-800 shadow-md"}`}
               >
                 {" "}
-                {c.flipped || c.matched ? c.emoji : ""}{" "}
+                {(c.flipped || c.matched) ? (
+                  c.isImage ? (
+                    <img src={c.content} alt="card" className="w-[85%] h-[85%] object-cover rounded-full" />
+                  ) : (
+                    c.content
+                  )
+                ) : ""}{" "}
               </div>
             ))}{" "}
           </div>{" "}

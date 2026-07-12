@@ -375,6 +375,37 @@ async function startServer() {
   // API to manually trigger reports (for testing)
   
   
+  
+  app.get("/api/memory-images", (req, res) => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      let targetDir = path.join(process.cwd(), 'public');
+      if (process.env.NODE_ENV === "production") {
+        const distDir = path.join(process.cwd(), 'dist');
+        if (fs.existsSync(distDir)) {
+          targetDir = distDir;
+        }
+      }
+      
+      if (!fs.existsSync(targetDir)) {
+        return res.json({ images: [] });
+      }
+      
+      const files = fs.readdirSync(targetDir);
+      const imageFiles = files.filter(f => 
+        (f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.webp')) &&
+        !f.includes('icon') && !f.includes('favicon')
+      );
+      
+      res.json({ images: imageFiles.map(f => `/${f}`) });
+    } catch(e) {
+      console.error("Error reading memory images:", e);
+      res.status(500).json({ error: String(e) });
+    }
+  });
+
   app.post("/api/reset-password", async (req, res) => {
     try {
       const { email } = req.body;
