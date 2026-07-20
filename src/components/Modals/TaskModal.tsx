@@ -47,7 +47,27 @@ export default function TaskModal({
   );
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [emailContent, setEmailContent] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (existingTask) {
+      if (existingTask.creatorEmail) {
+        setRecipientEmail(existingTask.creatorEmail);
+      } else if (existingTask.assignee) {
+        // Find matching member by name
+        const match = members.find((m) => m.name && existingTask.assignee.includes(m.name));
+        if (match?.email) {
+          setRecipientEmail(match.email);
+        } else {
+          setRecipientEmail("");
+        }
+      } else {
+        setRecipientEmail("");
+      }
+    }
+  }, [existingTask, members]);
+
   useEffect(() => {
     if (type === "notice") {
       setTeamId("t_notice");
@@ -59,8 +79,8 @@ export default function TaskModal({
       return;
     }
     
-    if (!existingTask?.creatorEmail) {
-      addToast("작성자 이메일 정보가 없습니다.", "error");
+    if (!recipientEmail.trim()) {
+      addToast("수신자 이메일 주소를 입력하거나 선택해주세요.", "error");
       return;
     }
     
@@ -70,11 +90,11 @@ export default function TaskModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: existingTask.creatorEmail,
-          subject: `[업무 코멘트] ${existingTask.title}`,
+          to: recipientEmail,
+          subject: `[업무 코멘트] ${existingTask?.title || title || "새로운 일정"}`,
           html: `<p>${senderName}님이 다음 업무에 대한 코멘트를 남겼습니다.</p>
                  <hr/>
-                 <p><b>업무명:</b> ${existingTask.title}</p>
+                 <p><b>업무명:</b> ${existingTask?.title || title || "새로운 일정"}</p>
                  <p><b>내용:</b></p>
                  <p>${emailContent.replace(/\n/g, "<br/>")}</p>`
         })
@@ -85,7 +105,8 @@ export default function TaskModal({
         setEmailContent("");
         setShowEmailForm(false);
       } else {
-        addToast("메일 발송에 실패했습니다.", "error");
+        const errData = await res.json().catch(() => ({}));
+        addToast("메일 발송에 실패했습니다: " + (errData.error || "서버 오류"), "error");
       }
     } catch (e) {
       console.error(e);
@@ -344,7 +365,7 @@ export default function TaskModal({
               placeholder="주간업무 작성 기준으로 작성해주세요(선택 사항)"
             ></textarea>{" "}
           </div>{" "}
-          {!isCreator && existingTask?.creatorEmail && (
+          {!isCreator && (
             <div className="flex-col gap-2 mt-1 pt-3 border-t border-gray-200 flex">
               {" "}
               <button
@@ -353,23 +374,48 @@ export default function TaskModal({
                 className="w-full py-2 bg-[#F2F2F7] active:scale-95 hover:bg-[#E5E5EA] text-[#007AFF] text-[13px] font-bold rounded-[10px] flex items-center justify-center gap-1.5 transition-all"
               >
                 {" "}
-                <Mail className="w-3.5 h-3.5" /> 작성자에게 메일로 지시/코멘트
-                보내기{" "}
+                <Mail className="w-3.5 h-3.5" /> 메일로 지시/코멘트 보내기{" "}
               </button>{" "}
               {showEmailForm && (
-                <div className="flex flex-col gap-1.5 mt-1">
+                <div className="flex flex-col gap-2.5 mt-1 bg-gray-50 p-3 rounded-[12px] border border-gray-200">
                   {" "}
-                  <textarea
-                    rows={2}
-                    value={emailContent}
-                    onChange={(e) => setEmailContent(e.target.value)}
-                    className="w-full bg-[#F5F5F7] border border-gray-300 rounded-[10px] px-3 py-2 text-[13px] font-bold outline-none focus:border-[#007AFF] focus:bg-white transition-all resize-none"
-                    placeholder="내용을 작성해주세요..."
-                  ></textarea>{" "}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold text-gray-500 pl-0.5">수신자 선택</label>
+                    <select
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-[8px] px-2.5 py-1.5 text-[12px] font-bold outline-none text-gray-700"
+                    >
+                      <option value="">-- 직접 입력 또는 멤버 선택 --</option>
+                      {members.map((m) => (
+                        <option key={m.email} value={m.email}>
+                          {m.name} {m.title} ({m.email})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="email"
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-[8px] px-2.5 py-1.5 text-[12px] font-bold outline-none text-gray-700 placeholder:text-gray-400 mt-1"
+                      placeholder="수신자 이메일 주소를 직접 입력"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-bold text-gray-500 pl-0.5">코멘트 내용</label>
+                    <textarea
+                      rows={2}
+                      value={emailContent}
+                      onChange={(e) => setEmailContent(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-[8px] px-3 py-2 text-[12px] font-bold outline-none focus:border-[#007AFF] transition-all resize-none text-gray-700"
+                      placeholder="지시 사항 또는 전달할 코멘트를 입력해주세요..."
+                    ></textarea>
+                  </div>
+                  {" "}
                   <button
                     type="button"
                     onClick={handleSendEmail}
-                    className="py-2.5 bg-[#34C759] active:scale-95 hover:bg-[#28A745] text-white text-[13px] font-bold rounded-[10px] flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
+                    className="py-2 bg-[#34C759] active:scale-95 hover:bg-[#28A745] text-white text-[12px] font-bold rounded-[8px] flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
                   >
                     {" "}
                     <Send className="w-3.5 h-3.5" /> 메일 바로 보내기{" "}
