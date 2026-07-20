@@ -49,6 +49,15 @@ async function getFbAuth() {
   await signInWithEmailAndPassword(auth, "system_cron@hd.com", "cronPassword123!");
 }
 
+function decryptField(text: string): string {
+  if (!text || !text.startsWith('ENC:')) return text;
+  try {
+    return decodeURIComponent(Buffer.from(text.slice(4), 'base64').toString('utf8'));
+  } catch (e) {
+    return text;
+  }
+}
+
 async function getMembers() {
   const docRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'workspace_settings', 'members');
   const snap = await getDoc(docRef);
@@ -60,9 +69,12 @@ async function getMembers() {
 
 async function getTasks() {
   const snapshot = await getDocs(collection(db, 'artifacts', APP_ID, 'public', 'data', 'workspace_tasks'));
-  const tasks = [];
+  const tasks: any[] = [];
   snapshot.forEach(d => {
-    tasks.push({ id: d.id, ...d.data() });
+    const data = d.data();
+    if (data.title) data.title = decryptField(data.title);
+    if (data.description) data.description = decryptField(data.description);
+    tasks.push({ id: d.id, ...data });
   });
   return tasks;
 }
@@ -148,8 +160,21 @@ async function sendEmail(emailAddress: string, subject: string, htmlContent: str
 
 async function sendEmailToAll(subject, textBody, htmlBody) {
   try {
-    const listUsersResult = await getAdminAuth().listUsers(1000);
-    const emails = listUsersResult.users.map(u => u.email).filter(Boolean);
+    // 1. Get emails of all department members from Firestore first
+    const members = await getMembers();
+    let emails = members.map(m => m.email).filter(Boolean);
+    console.log("Department members emails from Firestore:", emails);
+    
+    // 2. If no members in Firestore, fall back to Firebase Auth users
+    if (emails.length === 0) {
+      try {
+        const listUsersResult = await getAdminAuth().listUsers(1000);
+        emails = listUsersResult.users.map(u => u.email).filter(Boolean);
+        console.log("Fallback: Firebase Auth users emails:", emails);
+      } catch (authErr) {
+        console.warn("Could not list Firebase Auth users:", authErr);
+      }
+    }
     
     if (emails.length === 0) {
       console.log("No users found to send emails to.");
