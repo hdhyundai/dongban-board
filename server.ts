@@ -336,14 +336,24 @@ async function generateWeeklyReport() {
     const stats = {
       totalTasks: weekTasks.length,
       focusTasks: weekTasks.filter(t => t.isFocus).length,
-      tasksData: weekTasks.map(t => ({
-        title: t.title,
-        assignee: t.assignee,
-        date: `${t.startDate}~${t.endDate}`,
-        time: `${t.startTime}~${t.endTime}`,
-        isFocus: t.isFocus,
-        description: t.description
-      }))
+      tasksData: weekTasks.map(t => {
+        let teamName = "알수없음";
+        if (t.teamId === 't_notice') teamName = "부서공지";
+        else if (t.teamId === 't5') teamName = "담당임원";
+        else if (t.teamId === 't1') teamName = "기획과";
+        else if (t.teamId === 't2') teamName = "지원과";
+        else if (t.teamId === 't3') teamName = "인력지원과";
+        else if (t.teamId === 't4') teamName = "협력과";
+        return {
+          team: teamName,
+          title: t.title,
+          assignee: t.assignee,
+          date: `${t.startDate}~${t.endDate}`,
+          time: `${t.startTime}~${t.endTime}`,
+          isFocus: t.isFocus,
+          description: t.description
+        };
+      })
     };
 
     const prompt = `[System Persona]
@@ -356,6 +366,7 @@ async function generateWeeklyReport() {
 [Data Processing Rule]
 1. 기준 일시: ${todayStr} ~ ${nextWeekStr} (이번 주 월~금 날짜 계산)
 2. '주간업무' 및 '전체업무' 데이터에서 해당 기간에 속하는 계획 데이터를 추출하십시오.
+3. [중요] 제공된 입력 데이터(tasksData)에 있는 대시보드의 모든 업무(Task) 내용을 누락 없이 반드시 상세 표에 모두 포함하여 작성하십시오. 임의로 요약하여 업무를 생략하면 안 됩니다.
 
 [입력 데이터]
 ${JSON.stringify(stats, null, 2)}
@@ -370,11 +381,10 @@ ${JSON.stringify(stats, null, 2)}
 1. 폰트: 'Malgun Gothic', 줄간격 1.6 적용.
 2. 컬러: 메인 테마 '#0A2540(다크 네이비)', 주의 및 강조 사항은 '#D97706(엠버)'.
 3. 구성요소:
-   <메인 타이틀> -> <이번 주 부서 포커스(Focus)> -> <💡 핵심 전략 및 인사이트> -> <파트별 주간 계획 상세 표(일자, 소속 및 담당자, 업무명, 상세내용)>.
+   <메인 타이틀> -> <이번 주 부서 포커스(Focus)> -> <💡 핵심 전략 및 인사이트> -> <파트별 주간 계획 상세 표(소속, 일자, 담당자, 업무명, 상세내용)>.
 4. 디자인 세부: HTML 표의 헤더는 다크 네이비 배경에 흰색 글씨를 적용하여 무게감을 주고, 중요 일정은 굵은 글씨로 하이라이트 처리.
 5. 이메일 클라이언트 호환성: <style> 태그를 절대 사용하지 말고, 모든 HTML 요소에 style="..." 형태의 인라인 스타일(inline style)을 직접 100% 지정하여 디자인, 배경색, 여백, 글씨체 등이 이메일에서 완벽하고 고급스럽게 표현되도록 하십시오.
-6. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.
-`;
+6. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.`;
 
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set.");
     
@@ -384,15 +394,6 @@ ${JSON.stringify(stats, null, 2)}
     });
 
     let htmlContent = response.text.replace(/^\s*\`\`\`(?:html)?/mi, '').replace(/\`\`\`\s*$/m, '').trim();
-
-    try {
-      
-      
-      fs.writeFileSync(path.join(process.cwd(), 'generated_report_preview.html'), htmlContent, 'utf8');
-      console.log("Saved weekly report HTML preview to generated_report_preview.html");
-    } catch (fsErr) {
-      console.error("Failed to save report preview file:", fsErr);
-    }
 
     htmlContent += `
       <div style="margin-top: 40px; margin-bottom: 20px; text-align: center;">
@@ -415,19 +416,31 @@ async function generateDailyReport() {
     await getFbAuth();
     const tasks = await getTasks();
     const today = getKSTDate();
+    
     const todayStr = formatDate(today);
+    
     const todayTasks = tasks.filter(t => t.startDate <= todayStr && t.endDate >= todayStr);
     
     const stats = {
       totalTasks: todayTasks.length,
       focusTasks: todayTasks.filter(t => t.isFocus).length,
-      tasksData: todayTasks.map(t => ({
-        title: t.title,
-        assignee: t.assignee,
-        status: "진행완료", // Or however it is tracked, defaulting to '진행완료/진행중' depending on conditions
-        isFocus: t.isFocus,
-        description: t.description
-      }))
+      tasksData: todayTasks.map(t => {
+        let teamName = "알수없음";
+        if (t.teamId === 't_notice') teamName = "부서공지";
+        else if (t.teamId === 't5') teamName = "담당임원";
+        else if (t.teamId === 't1') teamName = "기획과";
+        else if (t.teamId === 't2') teamName = "지원과";
+        else if (t.teamId === 't3') teamName = "인력지원과";
+        else if (t.teamId === 't4') teamName = "협력과";
+        return {
+          team: teamName,
+          title: t.title,
+          assignee: t.assignee,
+          status: "진행완료",
+          isFocus: t.isFocus,
+          description: t.description
+        };
+      })
     };
 
     const prompt = `[System Persona]
@@ -440,6 +453,7 @@ async function generateDailyReport() {
 [Data Processing Rule]
 1. 기준 일시: ${todayStr}
 2. 입력된 데이터 중 시작일자와 종료일자에 오늘 날짜가 포함된 업무를 필터링하십시오.
+3. [중요] 제공된 입력 데이터(tasksData)에 있는 대시보드의 모든 당일 업무(Task) 내용을 누락 없이 반드시 상세 실적 표에 모두 포함하여 작성하십시오. 임의로 요약하거나 하나라도 누락하면 안 됩니다.
 
 [입력 데이터]
 ${JSON.stringify(stats, null, 2)}
@@ -454,11 +468,10 @@ ${JSON.stringify(stats, null, 2)}
 1. 폰트: 'Malgun Gothic', 'Apple SD Gothic Neo', 14px~22px.
 2. 컬러: 메인 테마 '#0A2540(다크 네이비)', 배경 '#F8F9FA'.
 3. 구성요소:
-   <메인 타이틀> -> <Executive Summary (3줄 요약)> -> <💡 AI Daily Insight> -> <당일 상세 실적 표(구분, 담당자, 업무명, 상태, 비고)>.
+   <메인 타이틀> -> <Executive Summary (3줄 요약)> -> <💡 AI Daily Insight> -> <당일 상세 실적 표(구분(팀), 담당자, 업무명, 상태, 상세내용)>.
 4. 표(Table) 양식: border-collapse 적용, 짝수 행 배경색 변경(Zebra 패턴), 상태값(진행완료/진행중)은 시각적 뱃지(Badge) 형태로 CSS 처리.
 5. 이메일 클라이언트 호환성: <style> 태그를 절대 사용하지 말고, 모든 HTML 요소에 style="..." 형태의 인라인 스타일(inline style)을 직접 100% 지정하여 디자인, 배경색, 여백, 글씨체 등이 이메일에서 완벽하고 고급스럽게 표현되도록 하십시오.
-6. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.
-`;
+6. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.`;
 
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set.");
     
