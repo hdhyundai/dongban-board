@@ -42,7 +42,7 @@ const appFb = initializeApp(firebaseConfig);
 const auth = getAuth(appFb);
 const db = getFirestore(appFb);
 
-const APP_ID = process.env.APP_ID || process.env.APPLET_ID || 'eb3f0661-2776-44fe-b636-367868eb0a11';
+const APP_ID = 'default-app-id';
 const EMAIL_API_URL = process.env.EMAIL_API_URL || "https://script.google.com/macros/s/AKfycbxcZJZaLES5dcoMcWv3UcQdwlKFZZ6a4Yb9hbSwmr314-IEPEb1GTcadCKbCfSWSSzl/exec";
 
 const ai = new GoogleGenAI({

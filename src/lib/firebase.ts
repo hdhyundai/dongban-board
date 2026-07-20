@@ -19,5 +19,5 @@ export const db = initializeFirestore(app, {
 
 // Use fallback if __app_id is not globally available
 export const getAppId = () => {
-  return (window as any).__app_id || 'default-app-id';
+  return 'default-app-id';
 };
