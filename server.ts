@@ -40,7 +40,7 @@ const appFb = initializeApp(firebaseConfig);
 const auth = getAuth(appFb);
 const db = getFirestore(appFb);
 
-const APP_ID = 'default-app-id';
+const APP_ID = process.env.APP_ID || process.env.APPLET_ID || 'eb3f0661-2776-44fe-b636-367868eb0a11';
 const EMAIL_API_URL = "https://script.google.com/macros/s/AKfycbxgO-GG7aUahtXZSa9YqKP9snlr2gMJW0yB9vBSgv6a-jbQ-VFHEK1F6UYZ83tuX1fT/exec";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "missing_key" });
@@ -108,7 +108,17 @@ async function sendEmail(emailAddress: string, subject: string, htmlContent: str
 
       const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
 
-      const senderEmail = process.env.SMTP_USER || "hshi.dongban1@gmail.com";
+      let senderEmail = process.env.SMTP_USER || "hshi.dongban1@gmail.com";
+      try {
+        const profile = await gmail.users.getProfile({ userId: 'me' });
+        if (profile.data.emailAddress) {
+          senderEmail = profile.data.emailAddress;
+          console.log("Resolved authenticated sender email:", senderEmail);
+        }
+      } catch (profileErr) {
+        console.warn("Failed to fetch Gmail profile. Using fallback SMTP_USER:", profileErr);
+      }
+
       const utf8FromName = `=?utf-8?B?${Buffer.from("HD현대삼호 동반성장부").toString('base64')}?=`;
       const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
 
