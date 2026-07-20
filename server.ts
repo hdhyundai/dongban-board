@@ -4,13 +4,13 @@ import { google } from "googleapis";
 import { marked } from "marked";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import cron from "node-cron";
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { GoogleGenAI } from "@google/genai";
 import { initializeApp as initAdminApp, cert } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
+import cron from "node-cron";
 
 const firebaseConfig = { 
   apiKey: "AIzaSyDw_WQxhF_07Hjhmgb_rfGuOqAE7lDvw00", 
@@ -96,11 +96,12 @@ async function sendEmail(emailAddress: string, subject: string, htmlContent: str
 
       const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
 
-      const utf8FromName = `=?utf-8?B?${Buffer.from("AI 시스템").toString('base64')}?=`;
+      const senderEmail = process.env.SMTP_USER || "hshi.dongban1@gmail.com";
+      const utf8FromName = `=?utf-8?B?${Buffer.from("HD현대삼호 동반성장부").toString('base64')}?=`;
       const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
 
       const messageParts = [
-        `From: ${utf8FromName} <my-system@gmail.com>`,
+        `From: ${utf8FromName} <${senderEmail}>`,
         `To: ${emailAddress}`,
         `Subject: ${utf8Subject}`,
         'Content-Type: text/html; charset="utf-8"',
@@ -155,15 +156,22 @@ async function sendEmailToAll(subject, textBody, htmlBody) {
       return;
     }
     
-    // We join the emails using comma for multiple recipients
-    const emailsStr = emails.join(",");
-    const result = await sendEmail(emailsStr, subject, htmlBody);
+    // Send email individually to avoid issues with comma-separated lists and to protect privacy
+    let successCount = 0;
+    let failCount = 0;
     
-    if (result.success) {
-      console.log("Successfully sent email to: " + emailsStr);
-    } else {
-      console.error("Failed to send email to: " + emailsStr);
+    for (const email of emails) {
+      const result = await sendEmail(email, subject, htmlBody);
+      if (result.success) {
+        console.log("Successfully sent email to: " + email);
+        successCount++;
+      } else {
+        console.error("Failed to send email to: " + email);
+        failCount++;
+      }
     }
+    
+    console.log(`Finished sending emails. Success: ${successCount}, Failed: ${failCount}`);
   } catch (error) {
     console.error("Error in sendEmailToAll:", error);
   }
@@ -325,11 +333,6 @@ ${JSON.stringify(stats, null, 2)}
   }
 }
 
-// Cron setup
-// Weekly: Monday 7:00 AM KST
-cron.schedule('0 7 * * 1', () => {
-  generateWeeklyReport();
-}, { timezone: "Asia/Seoul" });
 
 // Helper function to check if today is a public holiday (YYYY-MM-DD)
 function isHoliday(date) {
@@ -357,8 +360,16 @@ function isHoliday(date) {
   return holidays2026.includes(dateString);
 }
 
+// Cron setup
+// Weekly: Monday 7:00 AM KST
+cron.schedule('0 7 * * 1', () => {
+  console.log("Cron: Triggering Weekly Report...");
+  generateWeeklyReport();
+}, { timezone: "Asia/Seoul" });
+
 // Daily: 4:50 PM KST (평일 월~금)
 cron.schedule('50 16 * * 1-5', () => {
+  console.log("Cron: Triggering Daily Report...");
   const today = getKSTDate();
   if (isHoliday(today)) {
     console.log("Today is a holiday. Skipping daily report.");
@@ -442,16 +453,25 @@ async function startServer() {
   });
 
   app.post("/api/reports/weekly", async (req, res) => {
-    // Background task
-    generateWeeklyReport();
-    res.json({ message: "Weekly report generation triggered in background." });
+    try {
+      await generateWeeklyReport();
+      res.json({ message: "Weekly report generated." });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: String(e) });
+    }
   });
 
+  
   app.post("/api/reports/daily", async (req, res) => {
-    // Background task
-    generateDailyReport();
-    res.json({ message: "Daily report generation triggered in background." });
+    try {
+      await generateDailyReport();
+      res.json({ message: "Daily report generated." });
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
   });
+
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
