@@ -534,10 +534,6 @@ async function startServer() {
   app.use(express.json());
   const PORT = 3000;
 
-  // API to manually trigger reports (for testing)
-  
-  
-  
   app.get("/api/memory-images", (req, res) => {
     try {
       
