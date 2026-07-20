@@ -85,24 +85,42 @@ export default function AdminPanelModal({ onClose }: { onClose: () => void }) {
             {" "}
             <button
               onClick={async () => {
-                addToast("주간 보고서를 생성 중입니다...");
-                await fetch("/api/reports/weekly", { method: "POST" });
+                addToast("주간 보고서를 생성 및 전송 중입니다...", "info");
+                try {
+                  const res = await fetch("/api/reports/weekly", { method: "POST" });
+                  const data = await res.json();
+                  if (res.ok) {
+                    addToast("주간 보고서가 성공적으로 발송되었습니다!", "success");
+                  } else {
+                    addToast("발송 실패: " + (data.error || "오류가 발생했습니다."), "error");
+                  }
+                } catch (err) {
+                  addToast("주간 보고서 발송 중 오류가 발생했습니다.", "error");
+                }
               }}
               className="bg-purple-600 active:scale-95 hover:bg-purple-700 text-white px-3 py-2 rounded-[10px] text-[12px] font-bold shadow-sm transition-all active:scale-95 w-[90px] sm:w-auto"
             >
-              {" "}
               주간 보고서
               <br className="sm:hidden" />{" "}
               <span className="hidden sm:inline"> </span>수동 발송{" "}
             </button>{" "}
             <button
               onClick={async () => {
-                addToast("일일 보고서를 생성 중입니다...");
-                await fetch("/api/reports/daily", { method: "POST" });
+                addToast("일일 보고서를 생성 및 전송 중입니다...", "info");
+                try {
+                  const res = await fetch("/api/reports/daily", { method: "POST" });
+                  const data = await res.json();
+                  if (res.ok) {
+                    addToast("일일 보고서가 성공적으로 발송되었습니다!", "success");
+                  } else {
+                    addToast("발송 실패: " + (data.error || "오류가 발생했습니다."), "error");
+                  }
+                } catch (err) {
+                  addToast("일일 보고서 발송 중 오류가 발생했습니다.", "error");
+                }
               }}
               className="bg-teal-600 active:scale-95 hover:bg-teal-700 text-white px-3 py-2 rounded-[10px] text-[12px] font-bold shadow-sm transition-all active:scale-95 w-[90px] sm:w-auto pl-[13px] ml-[-1px] sm:pl-3 sm:ml-0"
             >
-              {" "}
               일일 보고서
               <br className="sm:hidden" />{" "}
               <span className="hidden sm:inline"> </span>수동 발송{" "}
