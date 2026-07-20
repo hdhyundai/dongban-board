@@ -3,6 +3,7 @@ import express from "express";
 import { google } from "googleapis";
 import { marked } from "marked";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
@@ -11,6 +12,7 @@ import { GoogleGenAI } from "@google/genai";
 import { initializeApp as initAdminApp, cert } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import cron from "node-cron";
+import nodemailer from "nodemailer";
 
 const firebaseConfig = { 
   apiKey: "AIzaSyDw_WQxhF_07Hjhmgb_rfGuOqAE7lDvw00", 
@@ -41,9 +43,56 @@ const auth = getAuth(appFb);
 const db = getFirestore(appFb);
 
 const APP_ID = process.env.APP_ID || process.env.APPLET_ID || 'eb3f0661-2776-44fe-b636-367868eb0a11';
-const EMAIL_API_URL = "https://script.google.com/macros/s/AKfycbxgO-GG7aUahtXZSa9YqKP9snlr2gMJW0yB9vBSgv6a-jbQ-VFHEK1F6UYZ83tuX1fT/exec";
+const EMAIL_API_URL = process.env.EMAIL_API_URL || "https://script.google.com/macros/s/AKfycbxcZJZaLES5dcoMcWv3UcQdwlKFZZ6a4Yb9hbSwmr314-IEPEb1GTcadCKbCfSWSSzl/exec";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "missing_key" });
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || "missing_key",
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    }
+  }
+});
+
+async function generateContentWithRetry(params: { model: string; contents: string; config?: any }, maxRetries = 3) {
+  let lastError: any = null;
+  const modelsToTry = [params.model, "gemini-3.1-flash-lite"]; // Try primary then fallback model
+  
+  for (const model of modelsToTry) {
+    let delay = 1000; // start with 1s delay
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Calling Gemini API (${model}), attempt ${attempt}/${maxRetries}...`);
+        const response = await ai.models.generateContent({
+          model: model,
+          contents: params.contents,
+          config: params.config
+        });
+        if (response && response.text) {
+          return response;
+        }
+        throw new Error("Empty response received from Gemini API");
+      } catch (err: any) {
+        lastError = err;
+        console.error(`Gemini API call failed on ${model} (attempt ${attempt}/${maxRetries}):`, err?.message || err);
+        
+        // If it's a 4xx error (e.g. 400, 403), don't retry as it's not a transient server/rate issue
+        if (err?.status && err.status >= 400 && err.status < 500) {
+          console.warn("Non-transient 4xx error. Skipping retries for this model.");
+          break;
+        }
+        
+        if (attempt < maxRetries) {
+          console.log(`Waiting ${delay}ms before retrying...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2; // exponential backoff
+        }
+      }
+    }
+  }
+  
+  throw lastError || new Error("Failed to generate content after retries and fallbacks.");
+}
 
 async function getFbAuth() {
   await signInWithEmailAndPassword(auth, "system_cron@hd.com", "cronPassword123!");
@@ -93,13 +142,48 @@ function formatDate(date) {
 }
 
 
+let gmailApiBroken = false;
+
 async function sendEmail(emailAddress: string, subject: string, htmlContent: string) {
-  console.log("=== SEND EMAIL (GMAIL API) ===");
+  console.log("=== SEND EMAIL ===");
   console.log("To:", emailAddress);
   console.log("Subject:", subject);
+
+  // 1. Try Nodemailer if SMTP_USER and SMTP_PASS/PASSWORD are available
+  const smtpUser = process.env.SMTP_USER || "hshi.dongban1@gmail.com";
+  const smtpPass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.GMAIL_APP_PASSWORD;
   
-  try {
-    if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN) {
+  if (smtpPass) {
+    console.log(`Attempting to send via Nodemailer as ${smtpUser}...`);
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: smtpUser,
+          pass: smtpPass
+        }
+      });
+      await transporter.sendMail({
+        from: `"HD현대삼호 동반성장부" <${smtpUser}>`,
+        to: emailAddress,
+        subject: subject,
+        html: htmlContent
+      });
+      console.log("Successfully sent via Nodemailer.");
+      return { success: true, method: 'nodemailer' };
+    } catch (err: any) {
+      console.error("Nodemailer failed:", err?.message || err);
+    }
+  }
+  
+  let gmailApiAttempted = false;
+  let gmailApiSuccess = false;
+  let gmailError = null;
+
+  if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN && !gmailApiBroken) {
+    gmailApiAttempted = true;
+    try {
+      console.log("Attempting to send via Gmail API...");
       const oAuth2Client = new google.auth.OAuth2(
         process.env.GMAIL_CLIENT_ID,
         process.env.GMAIL_CLIENT_SECRET
@@ -115,8 +199,8 @@ async function sendEmail(emailAddress: string, subject: string, htmlContent: str
           senderEmail = profile.data.emailAddress;
           console.log("Resolved authenticated sender email:", senderEmail);
         }
-      } catch (profileErr) {
-        console.warn("Failed to fetch Gmail profile. Using fallback SMTP_USER:", profileErr);
+      } catch (profileErr: any) {
+        console.warn("Failed to fetch Gmail profile. Using fallback SMTP_USER:", profileErr?.message || profileErr);
       }
 
       const utf8FromName = `=?utf-8?B?${Buffer.from("HD현대삼호 동반성장부").toString('base64')}?=`;
@@ -142,28 +226,47 @@ async function sendEmail(emailAddress: string, subject: string, htmlContent: str
         userId: 'me',
         requestBody: { raw: encodedMessage },
       });
-      return { success: true };
-    } else {
-      // Fallback to webhook if no Gmail creds
-      const data = {
-        to: emailAddress,
-        subject: subject,
-        html: htmlContent,
-        htmlBody: htmlContent,
-        message: htmlContent,
-        messageHtml: htmlContent,
-        body: htmlContent.replace(/<[^>]*>?/gm, '').replace(/&nbsp;/g, ' ').replace(/^[ \t]+/gm, '').replace(/\n{3,}/g, '\n\n').trim()
-      };
-      const response = await fetch(EMAIL_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      return { success: response.ok };
+      console.log("Successfully sent via Gmail API.");
+      gmailApiSuccess = true;
+      return { success: true, method: 'gmail_api' };
+    } catch (error: any) {
+      gmailError = error?.message || error;
+      console.error('Gmail API attempt failed, will fall back to Webhook:', error);
+      const errMsg = String(error);
+      if (errMsg.includes('invalid_grant') || errMsg.includes('invalid_client') || errMsg.includes('expired') || errMsg.includes('revoked')) {
+        console.warn("Gmail OAuth token is expired or revoked. Disabling primary Gmail API to prevent future timeouts.");
+        gmailApiBroken = true;
+      }
     }
-  } catch (error) {
-    console.error('Error sending email:', error);
-    return { success: false, error: String(error) };
+  }
+
+  // Fallback to Webhook if Gmail API was not configured OR failed
+  try {
+    console.log("Sending email via Webhook fallback...");
+    const data = {
+      to: emailAddress,
+      subject: subject,
+      html: htmlContent,
+      htmlBody: htmlContent,
+      message: htmlContent,
+      messageHtml: htmlContent
+    };
+    const response = await fetch(EMAIL_API_URL, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    
+    if (response.ok) {
+      console.log("Successfully sent via Webhook fallback.");
+      return { success: true, method: 'webhook_fallback' };
+    } else {
+      const responseText = await response.text().catch(() => "");
+      console.error("Webhook fallback failed with status:", response.status, responseText);
+      return { success: false, error: `Webhook failed with status ${response.status}: ${responseText}` };
+    }
+  } catch (webhookError: any) {
+    console.error("Webhook fallback also failed:", webhookError);
+    return { success: false, error: `Gmail error: ${gmailError}, Webhook error: ${webhookError?.message || webhookError}` };
   }
 }
 
@@ -269,17 +372,27 @@ ${JSON.stringify(stats, null, 2)}
 3. 구성요소:
    <메인 타이틀> -> <이번 주 부서 포커스(Focus)> -> <💡 핵심 전략 및 인사이트> -> <파트별 주간 계획 상세 표(일자, 소속 및 담당자, 업무명, 상세내용)>.
 4. 디자인 세부: HTML 표의 헤더는 다크 네이비 배경에 흰색 글씨를 적용하여 무게감을 주고, 중요 일정은 굵은 글씨로 하이라이트 처리.
-5. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.
+5. 이메일 클라이언트 호환성: <style> 태그를 절대 사용하지 말고, 모든 HTML 요소에 style="..." 형태의 인라인 스타일(inline style)을 직접 100% 지정하여 디자인, 배경색, 여백, 글씨체 등이 이메일에서 완벽하고 고급스럽게 표현되도록 하십시오.
+6. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.
 `;
 
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set.");
     
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
       contents: prompt
     });
 
     let htmlContent = response.text.replace(/^\s*\`\`\`(?:html)?/mi, '').replace(/\`\`\`\s*$/m, '').trim();
+
+    try {
+      
+      
+      fs.writeFileSync(path.join(process.cwd(), 'generated_report_preview.html'), htmlContent, 'utf8');
+      console.log("Saved weekly report HTML preview to generated_report_preview.html");
+    } catch (fsErr) {
+      console.error("Failed to save report preview file:", fsErr);
+    }
 
     htmlContent += `
       <div style="margin-top: 40px; margin-bottom: 20px; text-align: center;">
@@ -292,6 +405,7 @@ ${JSON.stringify(stats, null, 2)}
     await sendEmailToAll("HD현대삼호 동반성장부 주간 업무 계획 보고", "", htmlContent);
   } catch (error) {
     console.error("Error in generateWeeklyReport:", error);
+    throw error;
   }
 }
 
@@ -342,13 +456,14 @@ ${JSON.stringify(stats, null, 2)}
 3. 구성요소:
    <메인 타이틀> -> <Executive Summary (3줄 요약)> -> <💡 AI Daily Insight> -> <당일 상세 실적 표(구분, 담당자, 업무명, 상태, 비고)>.
 4. 표(Table) 양식: border-collapse 적용, 짝수 행 배경색 변경(Zebra 패턴), 상태값(진행완료/진행중)은 시각적 뱃지(Badge) 형태로 CSS 처리.
-5. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.
+5. 이메일 클라이언트 호환성: <style> 태그를 절대 사용하지 말고, 모든 HTML 요소에 style="..." 형태의 인라인 스타일(inline style)을 직접 100% 지정하여 디자인, 배경색, 여백, 글씨체 등이 이메일에서 완벽하고 고급스럽게 표현되도록 하십시오.
+6. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.
 `;
 
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set.");
     
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
       contents: prompt
     });
 
@@ -365,6 +480,7 @@ ${JSON.stringify(stats, null, 2)}
     await sendEmailToAll("HD현대삼호 동반성장부 일일 업무 실적 보고", "", htmlContent);
   } catch (error) {
     console.error("Error in generateDailyReport:", error);
+    throw error;
   }
 }
 
@@ -399,7 +515,7 @@ function isHoliday(date) {
 // Weekly: Monday 7:00 AM KST
 cron.schedule('0 7 * * 1', () => {
   console.log("Cron: Triggering Weekly Report...");
-  generateWeeklyReport();
+  generateWeeklyReport().catch(err => console.error("Cron Weekly Report Error:", err));
 }, { timezone: "Asia/Seoul" });
 
 // Daily: 4:50 PM KST (평일 월~금)
@@ -410,7 +526,7 @@ cron.schedule('50 16 * * 1-5', () => {
     console.log("Today is a holiday. Skipping daily report.");
     return;
   }
-  generateDailyReport();
+  generateDailyReport().catch(err => console.error("Cron Daily Report Error:", err));
 }, { timezone: "Asia/Seoul" });
 
 async function startServer() {
@@ -424,8 +540,8 @@ async function startServer() {
   
   app.get("/api/memory-images", (req, res) => {
     try {
-      const fs = require('fs');
-      const path = require('path');
+      
+      
       
       let targetDir = path.join(process.cwd(), 'public');
       if (process.env.NODE_ENV === "production") {
