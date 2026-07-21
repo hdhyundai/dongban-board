@@ -28,6 +28,14 @@ interface GameScore {
 interface GamesModalProps {
   onClose: () => void;
 }
+const getWeekString = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay();
+  d.setDate(d.getDate() - day);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 export default function GamesModal({ onClose }: GamesModalProps) {
   const { currentUser, members } = useAppStore();
   const [activeGame, setActiveGame] = useState<string>("clicker");
@@ -70,8 +78,9 @@ export default function GamesModal({ onClose }: GamesModalProps) {
     try {
       /* Memory, and Schulte are sorted by ascending (time), others descending (score) */
       const isAsc = gameId === "memory" || gameId === "schulte";
+      const weekStr = getWeekString();
       const q = query(
-        collection(db, `games/${gameId}/scores`),
+        collection(db, `games/${gameId}/weekly_scores/${weekStr}/scores`),
         orderBy("score", isAsc ? "asc" : "desc"),
         limit(50) /* Fetch more to deduplicate locally */,
       );
@@ -99,7 +108,8 @@ export default function GamesModal({ onClose }: GamesModalProps) {
   const saveScore = async (score: number) => {
     try {
       const docId = currentUser?.email || playerName;
-      const docRef = doc(db, `games/${activeGame}/scores`, docId);
+      const weekStr = getWeekString();
+      const docRef = doc(db, `games/${activeGame}/weekly_scores/${weekStr}/scores`, docId);
       const docSnap = await getDoc(docRef);
       const isAsc = activeGame === "memory" || activeGame === "schulte";
       if (docSnap.exists()) {
@@ -216,7 +226,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             {" "}
             <div className="font-bold text-[15px] flex items-center gap-2">
               {" "}
-              명예의 전당 🏆{" "}
+              주간 명예의 전당 🏆{" "}
             </div>{" "}
             {isLeaderboardOpen ? (
               <ChevronUp className="w-5 h-5" />
@@ -230,7 +240,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             {" "}
             <h3 className="hidden lg:flex text-[16px] font-bold mb-4 text-[#F2F2F7] items-center gap-2">
               {" "}
-              명예의 전당 🏆{" "}
+              주간 명예의 전당 🏆{" "}
             </h3>{" "}
             <div className="flex-1 overflow-y-auto no-scrollbar">
               {" "}
