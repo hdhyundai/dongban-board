@@ -273,9 +273,16 @@ async function sendEmail(emailAddress: string, subject: string, htmlContent: str
 
 async function sendEmailToAll(subject, textBody, htmlBody) {
   try {
-    // 임시 테스트용 발송 설정 (요청에 따라 1명에게만 발송)
-    let emails = ["p021435@hd.com"];
-    console.log("Sending only to test email:", emails);
+    const members = await getMembers();
+    let emails = members.map((m: any) => m.email).filter(Boolean);
+    
+    // 등록된 부서원 메일이 없을 경우
+    if (emails.length === 0) {
+      console.warn("No member emails found to send report.");
+      return { success: false, error: "No member emails registered." };
+    }
+    
+    console.log("Sending email to:", emails);
     
     // Send email individually to avoid issues with comma-separated lists and to protect privacy
     let successCount = 0;
