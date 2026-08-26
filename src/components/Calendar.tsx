@@ -156,22 +156,19 @@ export default function Calendar({
                 {holidayName && (() => {
                   const cleanName = holidayName.replace(/\s+/g, "");
                   const len = cleanName.length;
-                  const sizeClass =
+                  const spanClass =
                     len >= 5
-                      ? "text-[8px] sm:text-[8.5px]"
+                      ? "text-[8px] sm:text-[9px] -my-[2px] sm:-my-[1.5px]"
                       : len >= 4
-                        ? "text-[8.5px] sm:text-[9.5px]"
-                        : "text-[9.5px] sm:text-[10.5px]";
+                        ? "text-[8.5px] sm:text-[9.5px] -my-[1.5px] sm:-my-[1px]"
+                        : "text-[9px] sm:text-[10px] -my-[1px] sm:-my-[0.5px]";
                   return (
                     <div
-                      className={cn(
-                        "mt-0 font-black text-[#FF3B30] select-none flex flex-col items-center leading-[0.72] sm:leading-[0.75] tracking-tighter",
-                        sizeClass,
-                      )}
+                      className="mt-[-2px] font-black text-[#FF3B30] select-none flex flex-col items-center justify-start tracking-tighter"
                       title={holidayName}
                     >
                       {cleanName.split("").map((char, charIdx) => (
-                        <span key={charIdx} className="block">
+                        <span key={charIdx} className={cn("block leading-none", spanClass)}>
                           {char}
                         </span>
                       ))}
