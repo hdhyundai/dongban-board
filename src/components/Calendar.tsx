@@ -83,6 +83,8 @@ export default function Calendar({
   const renderCells = () => {
     const cells = [];
     const todayStr = formatDateForInput(new Date());
+    const daysInPrevMonth = getDaysInMonth(subMonths(currentMonth, 1));
+
     for (let i = 0; i < 42; i++) {
       const dayNum = i - firstDay + 1;
       const isCurrentMonth = dayNum > 0 && dayNum <= daysInMonth;
@@ -99,6 +101,14 @@ export default function Calendar({
             )
             .sort((a, b) => a.startTime.localeCompare(b.startTime))
         : [];
+
+      let otherMonthDay = 0;
+      if (dayNum <= 0) {
+        otherMonthDay = daysInPrevMonth + dayNum;
+      } else if (dayNum > daysInMonth) {
+        otherMonthDay = dayNum - daysInMonth;
+      }
+
       cells.push(
         <div
           key={i}
@@ -126,11 +136,11 @@ export default function Calendar({
           {isCurrentMonth ? (
             <>
               {" "}
-              <div className="absolute top-1.5 left-1.5 z-10">
+              <div className="absolute top-1 sm:top-1.5 left-1 sm:left-1.5 z-10 flex flex-col items-center w-5 sm:w-6 pointer-events-none">
                 {" "}
                 <span
                   className={cn(
-                    "w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center font-bold text-[11px] sm:text-[12px]",
+                    "w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center font-bold text-[11px] sm:text-[12px] shrink-0",
                     cellDateStr === todayStr
                       ? "bg-[#007AFF] rounded-full shadow-md text-white"
                       : isRed
@@ -143,15 +153,35 @@ export default function Calendar({
                   {" "}
                   {dayNum}{" "}
                 </span>{" "}
+                {holidayName && (() => {
+                  const cleanName = holidayName.replace(/\s+/g, "");
+                  const len = cleanName.length;
+                  const sizeClass =
+                    len >= 5
+                      ? "text-[8px] sm:text-[8.5px]"
+                      : len >= 4
+                        ? "text-[8.5px] sm:text-[9.5px]"
+                        : "text-[9.5px] sm:text-[10.5px]";
+                  return (
+                    <div
+                      className={cn(
+                        "mt-0 font-black text-[#FF3B30] select-none flex flex-col items-center leading-[0.72] sm:leading-[0.75] tracking-tighter",
+                        sizeClass,
+                      )}
+                      title={holidayName}
+                    >
+                      {cleanName.split("").map((char, charIdx) => (
+                        <span key={charIdx} className="block">
+                          {char}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>{" "}
-              {holidayName && (
-                <span className="absolute top-1 sm:top-1.5 right-1 sm:right-1.5 text-[9px] sm:text-[10px] font-bold text-[#FF3B30] bg-white/80 px-1 rounded truncate max-w-[calc(100%-28px)] sm:max-w-none">
-                  {holidayName}
-                </span>
-              )}{" "}
               <div className="flex items-start w-full h-full relative z-20 pt-[2px]">
                 {" "}
-                <div className="w-[18px] sm:w-[26px] shrink-0"></div>{" "}
+                <div className="w-[20px] sm:w-[26px] shrink-0"></div>{" "}
                 <div className="flex flex-col gap-0.5 sm:gap-1 flex-1 min-w-0">
                   {" "}
                   {dayTasks.slice(0, 4).map((t, idx) => {
@@ -214,8 +244,10 @@ export default function Calendar({
               </div>{" "}
             </>
           ) : (
-            <div className="text-[13px] md:text-[15px] font-bold p-1">
-              {dayNum > 0 ? dayNum : ""}
+            <div className="absolute top-1 sm:top-1.5 left-1 sm:left-1.5 z-10">
+              <span className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center font-bold text-[11px] sm:text-[12px] text-gray-300 select-none">
+                {otherMonthDay}
+              </span>
             </div>
           )}{" "}
         </div>,

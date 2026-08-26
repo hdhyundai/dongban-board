@@ -330,44 +330,74 @@ async function generateWeeklyReport() {
         return {
           team: teamName,
           title: t.title,
-          assignee: t.assignee,
+          assignee: t.assignee ? t.assignee.trim() : "-",
           date: `${t.startDate}~${t.endDate}`,
           time: `${t.startTime}~${t.endTime}`,
+          status: t.startDate <= todayStr ? "진행중" : "진행예정",
           isFocus: t.isFocus,
-          description: t.description
+          description: t.description ? t.description.trim() : "-"
         };
       })
     };
 
     const prompt = `[System Persona]
-당신은 HD현대삼호 동반성장부의 최고 전략 분석가이자 보고서 작성 AI입니다. 제공된 데이터를 바탕으로 이번 주 부서가 집중해야 할 핵심 추진 과제와 방향성을 제시하는 최고 수준의 HTML 주간 보고서를 작성하십시오.
+당신은 HD현대삼호 동반성장부의 업무 공유 및 보고서 작성 AI입니다. 팀원들이 캘린더에 등록한 주간 업무 데이터(일정 제목 및 세부 내용)를 바탕으로, 팀장 및 부서원들이 주간 주요 현황과 세부 계획을 한눈에 직관적으로 파악할 수 있는 최고 수준의 HTML 주간 보고서를 작성하십시오.
 
 [Mail & Title Rule (필수 적용)]
-- 메일 제목: HD현대삼호 동반성장부 주간 업무 계획 보고
-- HTML 문서 최상단(<h1>) 제목: HD현대삼호 동반성장부 주간 업무 계획 보고
+- 메일 제목: [동반성장부] 주간 업무 현황 및 계획 보고 (${todayStr} ~ ${nextWeekStr})
+- HTML 문서 최상단(<h1>) 제목: HD현대삼호 동반성장부 주간 업무 현황 및 계획
 
 [Data Processing Rule]
-1. 기준 일시: ${todayStr} ~ ${nextWeekStr} (이번 주 월~금 날짜 계산)
-2. '주간업무' 및 '전체업무' 데이터에서 해당 기간에 속하는 계획 데이터를 추출하십시오.
-3. [중요] 제공된 입력 데이터(tasksData)에 있는 대시보드의 모든 업무(Task) 내용을 누락 없이 반드시 상세 표에 모두 포함하여 작성하십시오. 임의로 요약하여 업무를 생략하면 안 됩니다.
+1. 기준 일시: ${todayStr} ~ ${nextWeekStr} (이번 주 월~금)
+2. [중요] 제공된 입력 데이터(tasksData)는 이미 이번 주에 해당하는 데이터로 필터링되어 전달됩니다. 임의로 데이터를 다시 필터링하거나 삭제하지 마십시오.
+3. [중요] 제공된 입력 데이터(tasksData)에 있는 모든 업무(Task)를 누락 없이 상세 표에 포함하십시오.
+4. [필수] 캘린더의 **'일정/업무 제목'**과 **'세부 내용(메모/설명)'**을 분리하여 상세 표의 각 칼럼에 명확히 기재하십시오. (세부 내용이 없는 경우 '-' 처리)
 
 [입력 데이터]
 ${JSON.stringify(stats, null, 2)}
 
-[Analysis & Insight Rule]
-1. [💡 이번 주 핵심 전략 및 인사이트] 섹션을 상단에 배치하십시오.
-2. 인사이트 도출 기준:
-   - Resource Allocation: 이번 주 가장 중요한 크리티컬 패스(Critical Path) 업무와 경영진 보고/마감 일정을 강조.
-   - Synergy Effect: 인력지원과, 기획과, 협력과 등 각 파트 간 일정 중 연계하여 처리할 때 시너지가 나거나 병목을 줄일 수 있는 포인트를 분석하여 제언.
+[Report Content Rule]
+1. [📌 이번 주 주요 업무 요약]
+   - 과도한 전략 분석(시너지, 크리티컬 패스 등)은 배제하고, **'이번 주 주요 마감 건(D-Day)', '주요 회의/보고/행사/현장 점검'** 등 부서 전체가 알아야 할 핵심 내용만 2~3줄로 간결하게 요약하십시오.
+2. [📋 파트별 주간 상세 업무 현황 표]
+   - 캘린더 등록 업무를 파트별/일자별로 정리하여 상세 표를 구성하십시오.
 
-[Design & HTML Rule]
-1. 폰트: 'Malgun Gothic', 줄간격 1.6 적용.
-2. 컬러: 메인 테마 '#0A2540(다크 네이비)', 주의 및 강조 사항은 '#D97706(엠버)'.
-3. 구성요소:
-   <메인 타이틀> -> <이번 주 부서 포커스(Focus)> -> <💡 핵심 전략 및 인사이트> -> <파트별 주간 계획 상세 표(소속, 일자, 담당자, 업무명, 상세내용)>.
-4. 디자인 세부: HTML 표의 헤더는 다크 네이비 배경에 흰색 글씨를 적용하여 무게감을 주고, 중요 일정은 굵은 글씨로 하이라이트 처리.
-5. 이메일 클라이언트 호환성: <style> 태그를 절대 사용하지 말고, 모든 HTML 요소에 style="..." 형태의 인라인 스타일(inline style)을 직접 100% 지정하여 디자인, 배경색, 여백, 글씨체 등이 이메일에서 완벽하고 고급스럽게 표현되도록 하십시오.
-6. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.`;
+[Design & HTML Exact Rule (제시된 템플릿 스타일 100% 준수)]
+1. Font Stack & Base Style:
+   - font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', sans-serif;
+   - -webkit-font-smoothing: antialiased; line-height: 1.6; color: #1e293b;
+2. Card Container:
+   - max-width: 860px; margin: 0 auto; padding: 36px 32px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+3. Header Section:
+   - 상단 브랜드 라인: <span style="font-size: 11px; font-weight: 700; color: #0284c7; letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 4px;">HD HYUNDAI SAMHO</span>
+   - 메인 타이틀(<h1>): font-size: 22px; color: #0a2540; font-weight: 800; letter-spacing: -0.6px; line-height: 1.3; margin: 0;
+   - 우측 날짜 뱃지: <span style="background-color: #f1f5f9; padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; font-size: 12px; color: #64748b; font-weight: 500;">📅 ${todayStr} ~ ${nextWeekStr}</span>
+4. Summary Box (📌 이번 주 주요 업무 요약):
+   - Box: background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0a2540; padding: 18px 20px; margin-bottom: 28px; border-radius: 6px;
+   - Header: font-size: 14px; font-weight: 700; color: #0a2540; margin-bottom: 10px; letter-spacing: -0.3px;
+   - Bullet List: margin: 0; padding-left: 18px; font-size: 13.5px; color: #334155; line-height: 1.7; letter-spacing: -0.2px;
+5. Table Exact Alignment & Style (📋 파트별 주간 상세 업무 현황):
+   - Section Title: font-size: 14px; font-weight: 700; color: #0a2540; margin-bottom: 12px; letter-spacing: -0.3px;
+   - Table Style: width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden;
+   - Column Widths: 구분(13%), 담당자(11%), 상태(11%), 업무명(27%), 상세내용(38%)
+   - Table Header (th): background-color: #0a2540; color: #ffffff; border: 1px solid #0a2540; vertical-align: middle; font-weight: 700; letter-spacing: -0.3px; (구분/담당자/상태: padding 12px 8px, text-align center | 업무명/상세내용: padding 12px 14px, text-align left)
+   - Table Row (tr & td):
+     * 모든 td 필수 공통: border: 1px solid #e2e8f0; vertical-align: middle;
+     * 짝수 행 Zebra 패턴: background-color: #f8fafc; (홀수 행: #ffffff)
+     * [구분]: text-align: center; color: #334155; font-weight: 500; padding: 12px 8px;
+     * [담당자]: text-align: center; color: #0f172a; font-weight: 700; padding: 12px 8px;
+     * [상태]: text-align: center; padding: 12px 8px;
+       - 완료 뱃지: <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; color: #065f46; background-color: #d1fae5; border-radius: 12px; letter-spacing: -0.2px;">완료</span>
+       - 진행중 뱃지: <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; color: #1e40af; background-color: #dbeafe; border-radius: 12px; letter-spacing: -0.2px;">진행중</span>
+       - 예정 뱃지: <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; color: #475569; background-color: #e2e8f0; border-radius: 12px; letter-spacing: -0.2px;">예정</span>
+     * [업무명]: text-align: left; font-weight: 700; color: #0f172a; letter-spacing: -0.3px; line-height: 1.4; padding: 12px 14px;
+     * [상세내용]: text-align: left; color: #475569; letter-spacing: -0.2px; line-height: 1.5; padding: 12px 14px;
+6. Footer Section:
+   - margin-top: 24px; padding-top: 12px; border-top: 1px solid #f1f5f9; font-size: 11.5px; color: #94a3b8; text-align: right; letter-spacing: -0.2px;
+   - 문구: "본 보고서는 HD현대삼호 동반성장부 업무 관리 시스템에서 자동 생성되었습니다."
+7. 이메일 호환성:
+   - <style> 태그 없이 모든 HTML 요소에 style="..." 인라인 스타일(inline style)을 100% 명시하십시오.
+8. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. 최상위 <div>로 시작해도 됩니다.`;
 
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set.");
     
@@ -386,7 +416,7 @@ ${JSON.stringify(stats, null, 2)}
       </div>
     `;
 
-    await sendEmailToAll("HD현대삼호 동반성장부 주간 업무 계획 보고", "", htmlContent);
+    await sendEmailToAll(`[동반성장부] 주간 업무 현황 및 계획 보고 (${todayStr} ~ ${nextWeekStr})`, "", htmlContent);
   } catch (error) {
     console.error("Error in generateWeeklyReport:", error);
     throw error;
@@ -418,43 +448,72 @@ async function generateDailyReport() {
         return {
           team: teamName,
           title: t.title,
-          assignee: t.assignee,
+          assignee: t.assignee ? t.assignee.trim() : "-",
           status: "진행완료",
           isFocus: t.isFocus,
-          description: t.description
+          description: t.description ? t.description.trim() : "-"
         };
       })
     };
 
     const prompt = `[System Persona]
-당신은 HD현대삼호 동반성장부의 최고 전략 분석가이자 보고서 작성 AI입니다. 제공된 데이터를 바탕으로 임원진 및 부서장이 당일 실적과 리스크를 직관적으로 파악할 수 있는 최고 수준의 HTML 보고서를 작성하십시오.
+당신은 HD현대삼호 동반성장부의 일일 업무 공유 및 보고서 작성 AI입니다. 팀원들이 캘린더에 등록한 당일 업무 데이터(일정 제목 및 세부 내용)를 바탕으로, 팀장 및 팀원들이 오늘의 업무 실적과 진행 현황을 직관적으로 파악할 수 있는 최고 수준의 HTML 일일 보고서를 작성하십시오.
 
 [Mail & Title Rule (필수 적용)]
-- 메일 제목: HD현대삼호 동반성장부 일일 업무 실적 보고
+- 메일 제목: [동반성장부] 일일 업무 실적 보고 (${todayStr})
 - HTML 문서 최상단(<h1>) 제목: HD현대삼호 동반성장부 일일 업무 실적 보고
 
 [Data Processing Rule]
-1. 기준 일시: ${todayStr}
-2. 입력된 데이터 중 시작일자와 종료일자에 오늘 날짜가 포함된 업무를 필터링하십시오.
-3. [중요] 제공된 입력 데이터(tasksData)에 있는 대시보드의 모든 당일 업무(Task) 내용을 누락 없이 반드시 상세 실적 표에 모두 포함하여 작성하십시오. 임의로 요약하거나 하나라도 누락하면 안 됩니다.
+1. 기준 일시: ${todayStr} (당일)
+2. [중요] 제공된 입력 데이터(tasksData)는 이미 오늘 날짜에 해당하는 당일 업무로 필터링되어 전달됩니다. 임의로 데이터를 다시 필터링하거나 삭제하지 마십시오.
+3. [중요] 제공된 입력 데이터(tasksData)에 있는 모든 당일 업무(Task)를 누락 없이 상세 실적 표에 모두 포함하여 작성하십시오.
+4. [필수] 캘린더의 **'일정/업무 제목'**과 **'세부 내용(메모/설명)'**을 분리하여 상세 표의 각 칼럼에 명확히 기재하십시오. (세부 내용이 없는 경우 '-' 처리)
 
 [입력 데이터]
 ${JSON.stringify(stats, null, 2)}
 
-[Analysis & Insight Rule]
-1. 단순 일정 나열을 금지합니다. 당일 완료된 업무가 부서 목표(외국인 인력 정착, 협력사 지원, 노무 리스크 관리 등)에 어떤 기여를 했는지 평가하십시오.
-2. [💡 AI Daily Insight] 섹션을 생성하여 다음을 분석하십시오.
-   - 업무 집중도: 특정 소속이나 개인에게 업무가 집중되었는지 확인.
-   - 리스크 및 병목 경고: 일정이 겹치거나 지연이 예상되는 업무, 타 부서 연계 시 발생할 수 있는 마찰 요소를 선제적으로 짚어냄.
+[Report Content Rule]
+1. [📌 당일 주요 업무 요약]
+   - 과도한 기여도/리스크 분석은 배제하고, **오늘 완료된 핵심 실적 및 진행 중인 중요 업무**를 2~3줄 내외로 간결하게 요약하십시오.
+2. [📋 당일 상세 실적 현황 표]
+   - 팀원별 당일 수행 업무와 세부 내용을 상세 표에 정돈하여 작성하십시오.
 
-[Design & HTML Rule]
-1. 폰트: 'Malgun Gothic', 'Apple SD Gothic Neo', 14px~22px.
-2. 컬러: 메인 테마 '#0A2540(다크 네이비)', 배경 '#F8F9FA'.
-3. 구성요소:
-   <메인 타이틀> -> <Executive Summary (3줄 요약)> -> <💡 AI Daily Insight> -> <당일 상세 실적 표(구분(팀), 담당자, 업무명, 상태, 상세내용)>.
-4. 표(Table) 양식: border-collapse 적용, 짝수 행 배경색 변경(Zebra 패턴), 상태값(진행완료/진행중)은 시각적 뱃지(Badge) 형태로 CSS 처리.
-5. 이메일 클라이언트 호환성: <style> 태그를 절대 사용하지 말고, 모든 HTML 요소에 style="..." 형태의 인라인 스타일(inline style)을 직접 100% 지정하여 디자인, 배경색, 여백, 글씨체 등이 이메일에서 완벽하고 고급스럽게 표현되도록 하십시오.
-6. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. <html>이나 <body> 태그 없이 <div>로 시작해도 됩니다.`;
+[Design & HTML Exact Rule (제시된 템플릿 스타일 100% 준수)]
+1. Font Stack & Base Style:
+   - font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', sans-serif;
+   - -webkit-font-smoothing: antialiased; line-height: 1.6; color: #1e293b;
+2. Card Container:
+   - max-width: 860px; margin: 0 auto; padding: 36px 32px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+3. Header Section:
+   - 상단 브랜드 라인: <span style="font-size: 11px; font-weight: 700; color: #0284c7; letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 4px;">HD HYUNDAI SAMHO</span>
+   - 메인 타이틀(<h1>): font-size: 22px; color: #0a2540; font-weight: 800; letter-spacing: -0.6px; line-height: 1.3; margin: 0;
+   - 우측 날짜 뱃지: <span style="background-color: #f1f5f9; padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; font-size: 12px; color: #64748b; font-weight: 500;">📅 ${todayStr}</span>
+4. Summary Box (📌 당일 주요 업무 요약):
+   - Box: background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0a2540; padding: 18px 20px; margin-bottom: 28px; border-radius: 6px;
+   - Header: font-size: 14px; font-weight: 700; color: #0a2540; margin-bottom: 10px; letter-spacing: -0.3px;
+   - Bullet List: margin: 0; padding-left: 18px; font-size: 13.5px; color: #334155; line-height: 1.7; letter-spacing: -0.2px;
+5. Table Exact Alignment & Style (📋 당일 상세 실적 현황):
+   - Section Title: font-size: 14px; font-weight: 700; color: #0a2540; margin-bottom: 12px; letter-spacing: -0.3px;
+   - Table Style: width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 4px; overflow: hidden;
+   - Column Widths: 구분(13%), 담당자(11%), 상태(11%), 업무명(27%), 상세내용(38%)
+   - Table Header (th): background-color: #0a2540; color: #ffffff; border: 1px solid #0a2540; vertical-align: middle; font-weight: 700; letter-spacing: -0.3px; (구분/담당자/상태: padding 12px 8px, text-align center | 업무명/상세내용: padding 12px 14px, text-align left)
+   - Table Row (tr & td):
+     * 모든 td 필수 공통: border: 1px solid #e2e8f0; vertical-align: middle;
+     * 짝수 행 Zebra 패턴: background-color: #f8fafc; (홀수 행: #ffffff)
+     * [구분]: text-align: center; color: #334155; font-weight: 500; padding: 12px 8px;
+     * [담당자]: text-align: center; color: #0f172a; font-weight: 700; padding: 12px 8px;
+     * [상태]: text-align: center; padding: 12px 8px;
+       - 완료 뱃지: <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; color: #065f46; background-color: #d1fae5; border-radius: 12px; letter-spacing: -0.2px;">완료</span>
+       - 진행중 뱃지: <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; color: #1e40af; background-color: #dbeafe; border-radius: 12px; letter-spacing: -0.2px;">진행중</span>
+       - 예정 뱃지: <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; color: #475569; background-color: #e2e8f0; border-radius: 12px; letter-spacing: -0.2px;">예정</span>
+     * [업무명]: text-align: left; font-weight: 700; color: #0f172a; letter-spacing: -0.3px; line-height: 1.4; padding: 12px 14px;
+     * [상세내용]: text-align: left; color: #475569; letter-spacing: -0.2px; line-height: 1.5; padding: 12px 14px;
+6. Footer Section:
+   - margin-top: 24px; padding-top: 12px; border-top: 1px solid #f1f5f9; font-size: 11.5px; color: #94a3b8; text-align: right; letter-spacing: -0.2px;
+   - 문구: "본 보고서는 HD현대삼호 동반성장부 업무 관리 시스템에서 자동 생성되었습니다."
+7. 이메일 호환성:
+   - <style> 태그 없이 모든 HTML 요소에 style="..." 인라인 스타일(inline style)을 100% 명시하십시오.
+8. 마크다운(\`\`\`html 등) 없이 순수 HTML 코드만 반환하십시오. 최상위 <div>로 시작해도 됩니다.`;
 
     if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set.");
     
@@ -473,7 +532,7 @@ ${JSON.stringify(stats, null, 2)}
       </div>
     `;
 
-    await sendEmailToAll("HD현대삼호 동반성장부 일일 업무 실적 보고", "", htmlContent);
+    await sendEmailToAll(`[동반성장부] 일일 업무 실적 보고 (${todayStr})`, "", htmlContent);
   } catch (error) {
     console.error("Error in generateDailyReport:", error);
     throw error;
