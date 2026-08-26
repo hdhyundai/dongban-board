@@ -371,14 +371,17 @@ ${JSON.stringify(stats, null, 2)}
 
 [Design & HTML Exact Rule (제시된 템플릿 스타일 100% 준수)]
 1. Font Stack & Base Style:
-   - font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', sans-serif;
+   - HD현대 폰트 굵기(Weight)별 적용 규칙 (HTML 요소 인라인 스타일 작성 시 아래 폰트명 규칙을 반드시 따르십시오):
+     * 본문/얇은 텍스트 (font-weight: 400): font-family: 'HD Light', 'HDLight', 'HD현대', 'Pretendard', sans-serif;
+     * 중간 텍스트 (font-weight: 500): font-family: 'HD Medium', 'HDMedium', 'HD현대', 'Pretendard', sans-serif;
+     * 제목/강조 텍스트 (font-weight: 700~800): font-family: 'HD Bold', 'HDBold', 'HD현대', 'Pretendard', sans-serif;
    - -webkit-font-smoothing: antialiased; line-height: 1.6; color: #1e293b;
 2. Card Container:
    - max-width: 860px; margin: 0 auto; padding: 36px 32px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
 3. Header Section:
-   - 상단 브랜드 라인: <span style="font-size: 11px; font-weight: 700; color: #0284c7; letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 4px;">HD HYUNDAI SAMHO</span>
-   - 메인 타이틀(<h1>): font-size: 22px; color: #0a2540; font-weight: 800; letter-spacing: -0.6px; line-height: 1.3; margin: 0;
-   - 우측 날짜 뱃지: <span style="background-color: #f1f5f9; padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; font-size: 12px; color: #64748b; font-weight: 500;">📅 ${todayStr} ~ ${nextWeekStr}</span>
+   - 상단 브랜드 라인: <span style="font-family: 'HD Bold', 'HDBold', sans-serif; font-size: 11px; font-weight: 700; color: #0284c7; letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 4px;">HD HYUNDAI SAMHO</span>
+   - 메인 타이틀(<h1>): font-family: 'HD Bold', 'HDBold', sans-serif; font-size: 22px; color: #0a2540; font-weight: 800; letter-spacing: -0.6px; line-height: 1.3; margin: 0;
+   - 우측 날짜 뱃지: <span style="font-family: 'HD Medium', 'HDMedium', sans-serif; background-color: #f1f5f9; padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; font-size: 12px; color: #64748b; font-weight: 500;">📅 ${todayStr} ~ ${nextWeekStr}</span>
 4. Summary Box (📌 이번 주 주요 업무 요약):
    - Box: background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0a2540; padding: 18px 20px; margin-bottom: 28px; border-radius: 6px;
    - Header: font-size: 14px; font-weight: 700; color: #0a2540; margin-bottom: 10px; letter-spacing: -0.3px;
@@ -487,14 +490,17 @@ ${JSON.stringify(stats, null, 2)}
 
 [Design & HTML Exact Rule (제시된 템플릿 스타일 100% 준수)]
 1. Font Stack & Base Style:
-   - font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', sans-serif;
+   - HD현대 폰트 굵기(Weight)별 적용 규칙 (HTML 요소 인라인 스타일 작성 시 아래 폰트명 규칙을 반드시 따르십시오):
+     * 본문/얇은 텍스트 (font-weight: 400): font-family: 'HD Light', 'HDLight', 'HD현대', 'Pretendard', sans-serif;
+     * 중간 텍스트 (font-weight: 500): font-family: 'HD Medium', 'HDMedium', 'HD현대', 'Pretendard', sans-serif;
+     * 제목/강조 텍스트 (font-weight: 700~800): font-family: 'HD Bold', 'HDBold', 'HD현대', 'Pretendard', sans-serif;
    - -webkit-font-smoothing: antialiased; line-height: 1.6; color: #1e293b;
 2. Card Container:
    - max-width: 860px; margin: 0 auto; padding: 36px 32px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
 3. Header Section:
-   - 상단 브랜드 라인: <span style="font-size: 11px; font-weight: 700; color: #0284c7; letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 4px;">HD HYUNDAI SAMHO</span>
-   - 메인 타이틀(<h1>): font-size: 22px; color: #0a2540; font-weight: 800; letter-spacing: -0.6px; line-height: 1.3; margin: 0;
-   - 우측 날짜 뱃지: <span style="background-color: #f1f5f9; padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; font-size: 12px; color: #64748b; font-weight: 500;">📅 ${todayStr}</span>
+   - 상단 브랜드 라인: <span style="font-family: 'HD Bold', 'HDBold', sans-serif; font-size: 11px; font-weight: 700; color: #0284c7; letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 4px;">HD HYUNDAI SAMHO</span>
+   - 메인 타이틀(<h1>): font-family: 'HD Bold', 'HDBold', sans-serif; font-size: 22px; color: #0a2540; font-weight: 800; letter-spacing: -0.6px; line-height: 1.3; margin: 0;
+   - 우측 날짜 뱃지: <span style="font-family: 'HD Medium', 'HDMedium', sans-serif; background-color: #f1f5f9; padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; font-size: 12px; color: #64748b; font-weight: 500;">📅 ${todayStr}</span>
 4. Summary Box (📌 당일 주요 업무 요약):
    - Box: background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0a2540; padding: 18px 20px; margin-bottom: 28px; border-radius: 6px;
    - Header: font-size: 14px; font-weight: 700; color: #0a2540; margin-bottom: 10px; letter-spacing: -0.3px;
