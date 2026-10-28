@@ -255,28 +255,24 @@ export default function Calendar({
   return (
     <div className="bg-white rounded-none sm:rounded-[28px] sm:shadow-sm flex-1 flex flex-col overflow-hidden min-h-0 border-b sm:border border-gray-300 border-x-0">
       {" "}
-      <div className="flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-3 md:gap-5 items-center px-3 pt-[5px] pb-[11px] sm:px-4 sm:pt-[5px] sm:pb-[11px] md:px-5 md:pt-[5px] md:pb-[11px] border-b border-gray-200 h-[58px] sm:h-[58px] md:h-[58px] shrink-0 bg-white ">
-        {" "}
+      <div className="flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-2 md:gap-4 items-center px-3 sm:px-4 md:px-5 border-b border-gray-200 h-[58px] shrink-0 bg-white">
         <div
           ref={containerRef}
           className="flex justify-start items-center gap-2 sm:gap-3 min-w-0 order-2 md:order-1 w-full md:w-auto overflow-hidden"
         >
-          {" "}
           <button
             onClick={handleToday}
             className="hidden md:block w-[59px] shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 text-[13px] sm:text-[14px] font-bold text-[#1D1D1F] bg-[#E5E5EA] active:scale-95 hover:bg-gray-300 border border-gray-300 rounded-[8px] sm:rounded-[10px] transition-colors"
           >
             오늘
-          </button>{" "}
+          </button>
           {currentMonthBirthdays.length > 0 && (
             <>
-              {" "}
               <button
                 onClick={() => setShowBirthdayModal(true)}
                 className="hidden md:flex h-[39px] items-center gap-1.5 text-[12.5px] font-extrabold text-[#0D9488] bg-[#0D9488]/10 px-3 rounded-[8px] border border-[#0D9488]/20 transition-colors active:scale-95 hover:bg-[#0D9488]/20 text-left min-w-0"
               >
-                {" "}
-                <span className="shrink-0">🎂 생일자</span>{" "}
+                <span className="shrink-0">🎂 생일자</span>
                 <div
                   className={`hidden md:grid gap-x-2 ${currentMonthBirthdays.length > 3 ? "gap-y-0.5" : "gap-y-1"} ml-1 ${hideNames ? "!hidden" : ""}`}
                   style={{
@@ -286,24 +282,22 @@ export default function Calendar({
                         : `repeat(${Math.min(currentMonthBirthdays.length, 3)}, 1fr)`,
                   }}
                 >
-                  {" "}
                   {currentMonthBirthdays.map((b, b_idx) => (
                     <span
                       key={b.id || `b-${b_idx}`}
                       className={`whitespace-nowrap ${currentMonthBirthdays.length > 3 ? "text-[11px] leading-[14px]" : "leading-normal"}`}
                     >
-                      {" "}
                       {b.name} {b.title}
                       {b.isLunar ? "(음)" : ""}(
-                      {getBirthdayThisYear(b, year).day}일){" "}
+                      {getBirthdayThisYear(b, year).day}일)
                     </span>
-                  ))}{" "}
-                </div>{" "}
-              </button>{" "}
+                  ))}
+                </div>
+              </button>
             </>
-          )}{" "}
-        </div>{" "}
-<div className="flex items-center justify-between md:justify-center md:gap-4 shrink-0 order-1 md:order-2 w-full md:w-auto px-1">
+          )}
+        </div>
+        <div className="flex items-center justify-between md:justify-center md:gap-4 shrink-0 order-1 md:order-2 w-full md:w-auto px-1">
           <div className="flex justify-start flex-1 basis-0 md:hidden">
             <button
               onClick={handleToday}
@@ -340,22 +334,21 @@ export default function Calendar({
               </button>
             )}
           </div>
-        </div>        <div className="hidden md:flex flex-wrap justify-end gap-3 min-w-0 order-3 h-[46px] pt-[8px] mt-[3px] items-center">
-          {" "}
+        </div>
+        <div className="hidden md:flex items-center justify-end gap-2 lg:gap-2.5 xl:gap-3 order-3 shrink-0 flex-nowrap whitespace-nowrap min-w-0">
           {TEAMS.filter((t) => t.id !== "t_notice").map((team) => (
             <span
               key={team.id}
-              className="flex items-center gap-1.5 text-[13px] font-bold text-[#48484A] h-[18.5px] -mt-[17px]"
+              className="inline-flex items-center gap-1.5 text-[11.5px] lg:text-[12px] xl:text-[13px] font-bold text-[#48484A] whitespace-nowrap shrink-0 select-none hover:opacity-85 transition-opacity"
             >
-              {" "}
-              <div
-                className="w-2 h-2 rounded-full"
+              <span
+                className="w-2 h-2 rounded-full shrink-0 shadow-xs"
                 style={{ backgroundColor: team.hex }}
-              ></div>{" "}
-              {team.name}{" "}
+              />
+              <span className="whitespace-nowrap">{team.name}</span>
             </span>
-          ))}{" "}
-        </div>{" "}
+          ))}
+        </div>
       </div>{" "}
       <div className="grid grid-cols-7 border-b border-gray-200 shrink-0 bg-[#F9F9FB] ">
         {" "}
