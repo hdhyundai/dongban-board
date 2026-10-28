@@ -335,14 +335,14 @@ export default function Calendar({
             )}
           </div>
         </div>
-        <div className="hidden md:flex items-center justify-end gap-2 lg:gap-2.5 xl:gap-3 order-3 shrink-0 flex-nowrap whitespace-nowrap min-w-0">
+        <div className="hidden md:flex items-center justify-end gap-1.5 lg:gap-2 xl:gap-2.5 order-3 shrink-0 flex-nowrap whitespace-nowrap min-w-max">
           {TEAMS.filter((t) => t.id !== "t_notice").map((team) => (
             <span
               key={team.id}
-              className="inline-flex items-center gap-1.5 text-[11.5px] lg:text-[12px] xl:text-[13px] font-bold text-[#48484A] whitespace-nowrap shrink-0 select-none hover:opacity-85 transition-opacity"
+              className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] lg:text-[11.5px] xl:text-[12px] font-bold text-[#48484A] whitespace-nowrap shrink-0 select-none hover:opacity-85 transition-opacity"
             >
               <span
-                className="w-2 h-2 rounded-full shrink-0 shadow-xs"
+                className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 shadow-xs"
                 style={{ backgroundColor: team.hex }}
               />
               <span className="whitespace-nowrap">{team.name}</span>

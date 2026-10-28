@@ -436,57 +436,57 @@ export default function AnchorMooringGame({ onFinish }: AnchorMooringGameProps) 
   }, [gameState]);
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col items-center select-none font-sans">
+    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
       {/* Top Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Anchor className="w-5 h-5 text-white" />
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+            <Anchor className="w-4 h-4 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-base sm:text-lg text-white">안벽 4-포인트 계류 윈치 결속 작전</h3>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">
+              <h3 className="font-bold text-sm sm:text-base text-white">안벽 4-포인트 계류 윈치</h3>
+              <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 shrink-0">
                 정밀 시뮬레이션
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-medium">
-              조류 외측 표류를 막고 4개 윈치 장력을 250~650 kN으로 유지하여 안벽에 4초간 완벽 밀착시키세요.
+            <p className="text-xs text-slate-400 font-normal hidden sm:block">
+              조류 표류를 막고 4개 윈치 장력을 250~650 kN으로 유지하여 안벽에 4초간 밀착시키세요.
             </p>
           </div>
         </div>
 
         {/* Live Status Gauges */}
-        <div className="flex items-center gap-4 text-xs font-semibold">
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">안벽 방충재 거리</span>
-            <span className={`text-base font-black ${distanceToQuayM <= 0.45 ? "text-emerald-400" : "text-cyan-400"}`}>
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">방충재 거리</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${distanceToQuayM <= 0.45 ? "text-emerald-400" : "text-cyan-400"}`}>
               {distanceToQuayM}m
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">선체 횡경사 각도</span>
-            <span className={`text-base font-black ${Math.abs(yawDeg) < 1.5 ? "text-emerald-400" : "text-amber-400"}`}>
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">선체 각도</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${Math.abs(yawDeg) < 1.5 ? "text-emerald-400" : "text-amber-400"}`}>
               {yawDeg}°
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">계류 유지 시간</span>
-            <span className="text-base font-black text-emerald-400">
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">유지 시간</span>
+            <span className="text-xs sm:text-sm font-bold text-emerald-400 tabular-nums">
               {stableHoldSec}s / 4.0s
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">계류 점수</span>
-            <span className="text-base font-black text-sky-400">{score.toLocaleString()}점</span>
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">계류 점수</span>
+            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">{score.toLocaleString()}점</span>
           </div>
 
           <button
             onClick={toggleSound}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-all active:scale-95"
+            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
             title={isMuted ? "소리 켜기" : "음소거"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
@@ -495,34 +495,33 @@ export default function AnchorMooringGame({ onFinish }: AnchorMooringGameProps) 
       </div>
 
       {/* Main Canvas Viewport */}
-      <div className="w-full relative rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 aspect-[16/9] min-h-[400px] flex items-center justify-center">
-        <canvas ref={canvasRef} className="w-full h-full" width={640} height={420} />
+      <div className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[310px] sm:h-[340px] md:h-[360px] flex items-center justify-center">
+        <canvas ref={canvasRef} className="w-full h-full block" width={640} height={420} />
 
         {/* Alarm Banner */}
         {alarmMsg && gameState === "PLAYING" && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-rose-950/90 border border-rose-500 text-rose-200 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg animate-bounce z-10">
-            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-rose-950/90 border border-rose-500 text-rose-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg animate-bounce z-10">
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
             {alarmMsg}
           </div>
         )}
 
         {/* Start Overlay */}
         {gameState === "READY" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-            <div className="w-16 h-16 rounded-2xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center mb-4 text-sky-400 shadow-xl shadow-sky-500/10">
-              <Anchor className="w-8 h-8" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in duration-200">
+            <div className="w-12 h-12 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center mb-2.5 text-sky-400 shadow-lg shadow-sky-500/10">
+              <Anchor className="w-6 h-6" />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">안벽 4-포인트 윈치 계류 시뮬레이터</h2>
-            <p className="text-slate-300 text-sm max-w-lg mb-6 leading-relaxed">
-              가만히 있으면 거센 조류에 밀려 선박이 항로로 유실됩니다!<br />
-              <strong>1, 2, 3, 4 키</strong>로 각 윈치 계류줄을 감아당기고(Shift와 함께 누르면 풀림),<br />
-              모든 로프 장력을 <strong>250~650 kN</strong>으로 균등 배분하여 <strong>안벽 거리 0.45m 이내</strong>로 4초간 고정하세요.
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">안벽 4-포인트 윈치 계류 시뮬레이터</h2>
+            <p className="text-slate-300 text-xs sm:text-[13px] max-w-md mb-3.5 leading-relaxed">
+              <strong>1, 2, 3, 4 키</strong>로 각 윈치 계류줄을 감아당기고(Shift 누르면 풀림),<br />
+              로프 장력을 <strong>250~650 kN</strong>으로 균등 배분하여 <strong>안벽 거리 0.45m 이내</strong>로 4초간 고정하세요.
             </p>
             <button
               onClick={startGame}
-              className="px-8 py-3.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-black text-base rounded-xl shadow-lg shadow-sky-500/25 active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <Play className="w-5 h-5 fill-white" />
+              <Play className="w-4 h-4 fill-white" />
               계류 윈치 작전 시작
             </button>
           </div>
@@ -530,38 +529,38 @@ export default function AnchorMooringGame({ onFinish }: AnchorMooringGameProps) 
 
         {/* Game Over / Victory Overlay */}
         {gameState === "GAMEOVER" && (
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
             {stateRef.current.isMoored ? (
               <>
-                <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-3 text-emerald-400">
-                  <CheckCircle2 className="w-9 h-9" />
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-2 text-emerald-400">
+                  <CheckCircle2 className="w-6 h-6" />
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-white mb-2">
+                <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">
                   안벽 4-포인트 완전 결속 성공!
                 </h3>
-                <p className="text-slate-300 text-sm mb-4 max-w-md">
+                <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
                   볼라드와 방충재에 완벽하게 밀착되어 무사고 계류 승인이 발령되었습니다.
                 </p>
               </>
             ) : (
               <>
-                <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-3 text-rose-400">
-                  <AlertTriangle className="w-9 h-9" />
+                <div className="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-2 text-rose-400">
+                  <AlertTriangle className="w-6 h-6" />
                 </div>
-                <h3 className="text-2xl font-black text-white mb-1">계류 작전 실패</h3>
-                <p className="text-slate-300 text-sm mb-4">
-                  {alarmMsg || "조류 유실 또는 방충재 충격 속도 초과로 작전이 중단되었습니다."}
+                <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">계류 작전 실패</h3>
+                <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
+                  {alarmMsg || "조류 유실 또는 방충재 충격 속도 초과로 중단되었습니다."}
                 </p>
               </>
             )}
 
-            <div className="bg-slate-900 border border-slate-800 px-6 py-4 rounded-2xl text-center mb-6 min-w-[200px]">
-              <span className="text-xs text-slate-400 block mb-1">최종 계류 스코어</span>
-              <span className="text-3xl font-black text-sky-400">{score.toLocaleString()}점</span>
+            <div className="bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-center mb-3.5 min-w-[180px]">
+              <span className="text-[10px] text-slate-400 block mb-0.5 font-medium">최종 계류 스코어</span>
+              <span className="text-xl sm:text-2xl font-bold text-sky-400 tabular-nums">{score.toLocaleString()}점</span>
             </div>
             <button
               onClick={startGame}
-              className="px-7 py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-black text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               계류 재도전
@@ -571,25 +570,25 @@ export default function AnchorMooringGame({ onFinish }: AnchorMooringGameProps) 
       </div>
 
       {/* 4-Line Mooring Winch Remote Control Deck */}
-      <div className="w-full mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="w-full mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
         {stateRef.current.ropes.map((rope, idx) => (
-          <div key={idx} className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-black text-white truncate">{rope.shortName}</span>
-              <span className={`text-[11px] font-mono font-bold ${rope.tensionKN > 700 ? "text-rose-400 animate-pulse" : rope.tensionKN >= 250 && rope.tensionKN <= 650 ? "text-emerald-400" : "text-amber-400"}`}>
+          <div key={idx} className="bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-lg flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-white truncate">{rope.shortName}</span>
+              <span className={`text-[10px] font-bold tabular-nums ${rope.tensionKN > 700 ? "text-rose-400 animate-pulse" : rope.tensionKN >= 250 && rope.tensionKN <= 650 ? "text-emerald-400" : "text-amber-400"}`}>
                 {Math.round(rope.tensionKN)} kN
               </span>
             </div>
-            <div className="flex gap-1.5 mt-1">
+            <div className="flex gap-1 mt-0.5">
               <button
                 onClick={() => adjustRopeTension(idx, 80)}
-                className="flex-1 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-lg active:scale-95 transition-all shadow-sm"
+                className="flex-1 py-1 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-md active:scale-95 transition-all shadow-sm"
               >
-                당기기 [+{idx + 1}]
+                당김 [+{idx + 1}]
               </button>
               <button
                 onClick={() => adjustRopeTension(idx, -80)}
-                className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg active:scale-95 transition-all"
+                className="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-md active:scale-95 transition-all border border-slate-700"
               >
                 풀기
               </button>

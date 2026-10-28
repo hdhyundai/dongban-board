@@ -521,33 +521,62 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
   }, [gameState]);
 
   return (
-    <div className="flex flex-col items-center w-full max-w-[560px] select-none">
+    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
       {/* Top Header */}
-      <div className="w-full flex items-center justify-between mb-3 px-2">
-        <div className="flex items-center gap-2">
-          <span className="font-extrabold text-[17px] text-[#002C6C] flex items-center gap-1.5">
-            <Compass className="w-5 h-5 text-[#00A352]" />
-            영암만 쾌속 항해 (Ocean Voyager)
-          </span>
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+            <Compass className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-white">영암만 쾌속 항해 (Ocean Voyager)</h3>
+              {hasShield && (
+                <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1 animate-pulse">
+                  <Shield className="w-3 h-3" /> 방어막
+                </span>
+              )}
+              {isTurbo && (
+                <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1 animate-bounce">
+                  <Zap className="w-3 h-3 fill-current" /> 터보
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 font-normal hidden sm:block">
+              암초를 회피하고 친환경 배터리와 황금 닻을 수집하며 영암만을 고속 항주하세요.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {hasShield && (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1 animate-pulse">
-              <Shield className="w-3 h-3" /> 방어막 가동
+        {/* Live Gauges */}
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">항해 거리</span>
+            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">
+              {distance.toLocaleString()} NM
             </span>
-          )}
-          {isTurbo && (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 flex items-center gap-1 animate-bounce">
-              <Zap className="w-3 h-3 fill-current" /> 터보 부스터!
+          </div>
+
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">추진 배터리</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${battery < 25 ? "text-rose-400 animate-pulse" : "text-emerald-400"}`}>
+              {battery}%
             </span>
-          )}
+          </div>
+
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">항해 스코어</span>
+            <span className="text-xs sm:text-sm font-bold text-emerald-400 tabular-nums">
+              {score.toLocaleString()}점
+            </span>
+          </div>
+
           <button
             onClick={toggleSound}
-            className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
             title={isMuted ? "소리 켜기" : "음소거"}
           >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-[#007AFF]" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
           </button>
         </div>
       </div>
@@ -555,54 +584,26 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
       {/* Canvas Container with Pointer Controls */}
       <div
         onPointerMove={handlePointerMove}
-        className="relative w-full h-[460px] bg-slate-900 rounded-[20px] overflow-hidden shadow-2xl border-2 border-slate-700 cursor-crosshair touch-none"
+        className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[340px] sm:h-[370px] md:h-[380px] flex items-center justify-center cursor-crosshair touch-none"
       >
-        <canvas ref={canvasRef} width={540} height={520} className="w-full h-full object-cover" />
-
-        {/* Live HUD */}
-        {gameState === "PLAYING" && (
-          <div className="absolute top-4 left-4 right-4 flex justify-between items-center pointer-events-none">
-            <div className="bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-[12px] border border-white/10 text-white">
-              <div className="text-[10px] font-bold text-gray-400">항해 거리</div>
-              <div className="text-[18px] font-black text-[#60A5FA] tabular-nums">
-                {distance.toLocaleString()}
-                <span className="text-[11px] text-gray-300 ml-1">NM</span>
-              </div>
-            </div>
-
-            {/* Battery Indicator */}
-            <div className="bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-[12px] border border-white/10 text-white text-center">
-              <div className="text-[10px] font-bold text-gray-400">추진 배터리</div>
-              <div className={`text-[17px] font-black tabular-nums ${battery < 25 ? "text-rose-400 animate-pulse" : "text-emerald-400"}`}>
-                ⚡ {battery}%
-              </div>
-            </div>
-
-            <div className="bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-[12px] border border-white/10 text-white text-right">
-              <div className="text-[10px] font-bold text-gray-400">종합 스코어</div>
-              <div className="text-[20px] font-black text-[#34C759] tabular-nums">
-                {score.toLocaleString()}
-              </div>
-            </div>
-          </div>
-        )}
+        <canvas ref={canvasRef} width={540} height={520} className="w-full h-full object-cover block" />
 
         {/* START OVERLAY */}
         {gameState === "READY" && (
-          <div className="absolute inset-0 bg-black/65 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center text-white">
-            <div className="w-16 h-16 rounded-2xl bg-[#00A352]/20 border border-[#00A352]/40 flex items-center justify-center mb-4 text-[#00A352]">
-              <Compass className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white z-20">
+            <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center mb-3 text-blue-400 shadow-md">
+              <Compass className="w-6 h-6" />
             </div>
-            <h2 className="text-[24px] font-black tracking-tight mb-2">영암만 쾌속 항해</h2>
-            <p className="text-gray-300 text-[14px] max-w-sm mb-6 leading-relaxed">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">영암만 쾌속 항해</h2>
+            <p className="text-slate-300 text-xs sm:text-[13px] max-w-sm mb-4 leading-relaxed font-normal">
               가만히 있으면 배터리가 방전되어 표류합니다!<br />
               암초와 부표를 피하고 <span className="text-emerald-400 font-bold">⚡친환경 배터리</span>와 <span className="text-amber-400 font-bold">⚓황금 닻</span>을 수집하세요!
             </p>
             <button
               onClick={startGame}
-              className="bg-[#00A352] hover:bg-[#008744] text-white px-8 py-3.5 rounded-full text-[17px] font-bold shadow-xl active:scale-95 transition-transform flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-2"
             >
-              <Play className="w-5 h-5 fill-current" />
+              <Play className="w-4 h-4 fill-current" />
               출항하기
             </button>
           </div>
@@ -610,36 +611,39 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
 
         {/* GAME OVER OVERLAY */}
         {gameState === "GAMEOVER" && (
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white animate-in fade-in">
-            <h3 className="text-[22px] font-black mb-1">시운전 항해 종료</h3>
-            <p className="text-gray-300 text-[13px] mb-4 font-semibold">{gameOverReason || "장애물에 충돌했습니다!"}</p>
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white z-20 animate-in fade-in duration-200">
+            <div className="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-2.5 text-rose-400">
+              <Compass className="w-6 h-6" />
+            </div>
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">시운전 항해 종료</h3>
+            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm font-normal">{gameOverReason || "장애물에 충돌했습니다!"}</p>
 
-            <div className="grid grid-cols-2 gap-3 w-full max-w-xs mb-6">
-              <div className="bg-white/10 rounded-[14px] p-3 text-center border border-white/10">
-                <div className="text-[11px] text-gray-400 font-bold">최종 점수</div>
-                <div className="text-[22px] font-black text-[#34C759]">{score.toLocaleString()}</div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 w-full max-w-xs mb-4 shadow-md space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400">최종 점수</span>
+                <span className="font-bold text-emerald-400 tabular-nums">{score.toLocaleString()}점</span>
               </div>
-              <div className="bg-white/10 rounded-[14px] p-3 text-center border border-white/10">
-                <div className="text-[11px] text-gray-400 font-bold">항해 거리</div>
-                <div className="text-[22px] font-black text-[#60A5FA]">{distance.toLocaleString()} NM</div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400">항해 거리</span>
+                <span className="font-bold text-sky-400 tabular-nums">{distance.toLocaleString()} NM</span>
               </div>
             </div>
 
             <button
               onClick={startGame}
-              className="bg-[#007AFF] hover:bg-[#0056b3] text-white px-8 py-3.5 rounded-full text-[16px] font-bold shadow-xl active:scale-95 transition-transform flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-2"
             >
-              <RotateCcw className="w-5 h-5" />
+              <RotateCcw className="w-4 h-4" />
               다시 출항하기
             </button>
           </div>
         )}
       </div>
 
-      <div className="mt-3 text-[12px] text-gray-500 flex items-center gap-4">
+      {/* Footer Instructions */}
+      <div className="w-full mt-2 bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-xl text-[11px] text-slate-400 flex items-center justify-between">
         <span>💡 조작법: 마우스 좌우 이동 / 좌우 방향키 (← →)</span>
-        <span>•</span>
-        <span>🚀 터보 부스터 획득 시 전방 무적 돌파</span>
+        <span className="text-slate-500 hidden sm:inline">🚀 터보 부스터 획득 시 전방 무적 돌파</span>
       </div>
     </div>
   );

@@ -519,54 +519,54 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
   }, [isPlaying, gameOver, success]);
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col items-center select-none font-sans">
-      {/* Telemetry Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <Waves className="w-5 h-5 text-white" />
+    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
+      {/* Top Header */}
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-md shadow-cyan-500/20 shrink-0">
+            <Waves className="w-4 h-4 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-base sm:text-lg text-white">드라이도크 안전 진수식 (Float-off)</h3>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+              <h3 className="font-bold text-sm sm:text-base text-white">드라이도크 안전 진수식</h3>
+              <span className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
                 phase === 1
                   ? "bg-sky-500/20 text-sky-400 border-sky-500/30"
                   : phase === 2
                   ? "bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse"
                   : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
               }`}>
-                {phase === 1 ? "1단계: 선저 주수" : phase === 2 ? "2단계: 기주 분리 임계점" : "3단계: 도크 게이트 개방"}
+                {phase === 1 ? "1단계: 주수" : phase === 2 ? "2단계: 기주 분리" : "3단계: 진수 개방"}
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-medium">
-              선수/선미 주수문과 좌/우현 밸러스트 펌프를 조작하여 횡경사 ±2.0° 이내로 부유시키세요.
+            <p className="text-xs text-slate-400 font-normal hidden sm:block">
+              주수문과 밸러스트 펌프를 조작하여 횡경사 ±2.0° 이내로 부유시키세요.
             </p>
           </div>
         </div>
 
         {/* Live Gauges */}
-        <div className="flex items-center gap-4 text-xs font-semibold">
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">도크 주수율</span>
-            <span className="text-base font-black text-cyan-400">{waterLevel}%</span>
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">주수율</span>
+            <span className="text-xs sm:text-sm font-bold text-cyan-400 tabular-nums">{waterLevel}%</span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">선체 횡경사 (List)</span>
-            <span className={`text-base font-black ${Math.abs(shipAngle) > 3.0 ? "text-rose-400 animate-pulse" : Math.abs(shipAngle) > 1.8 ? "text-amber-400" : "text-emerald-400"}`}>
-              {shipAngle > 0 ? `+${shipAngle}° (우현)` : shipAngle < 0 ? `${shipAngle}° (좌현)` : "0.0° (수평)"}
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">횡경사 (List)</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${Math.abs(shipAngle) > 3.0 ? "text-rose-400 animate-pulse" : Math.abs(shipAngle) > 1.8 ? "text-amber-400" : "text-emerald-400"}`}>
+              {shipAngle > 0 ? `+${shipAngle}° (우)` : shipAngle < 0 ? `${shipAngle}° (좌)` : "0.0°"}
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">진수 스코어</span>
-            <span className="text-base font-black text-sky-400">{score.toLocaleString()}점</span>
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">진수 스코어</span>
+            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">{score.toLocaleString()}점</span>
           </div>
 
           <button
             onClick={toggleSound}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-all active:scale-95"
+            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
             title={isMuted ? "소리 켜기" : "음소거"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
@@ -575,35 +575,33 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
       </div>
 
       {/* Main Viewport */}
-      <div className="w-full relative rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 aspect-[16/9] min-h-[400px] flex items-center justify-center">
-        <canvas ref={canvasRef} className="w-full h-full" />
+      <div className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[310px] sm:h-[340px] md:h-[360px] flex items-center justify-center">
+        <canvas ref={canvasRef} className="w-full h-full block" />
 
         {/* Warning Toast */}
         {warningMsg && isPlaying && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-rose-950/90 border border-rose-500 text-rose-200 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg animate-bounce z-10">
-            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-rose-950/90 border border-rose-500 text-rose-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg animate-bounce z-10">
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
             {warningMsg}
           </div>
         )}
 
         {/* Start Overlay */}
         {!isPlaying && !gameOver && !success && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-            <div className="w-16 h-16 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mb-4 text-cyan-400 shadow-xl shadow-cyan-500/10">
-              <Waves className="w-8 h-8" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in duration-200">
+            <div className="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mb-2.5 text-cyan-400 shadow-lg shadow-cyan-500/10">
+              <Waves className="w-6 h-6" />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">드라이도크 안전 진수식</h2>
-            <p className="text-slate-300 text-sm max-w-lg mb-6 leading-relaxed">
-              가만히 있으면 주수가 진행되지 않습니다!<br />
-              <strong>선수(1번) / 선미(2번) 밸브</strong>를 열어 도크에 해수를 유입시키고,<br />
-              <strong>40% 기주 분리(Float-off)</strong> 순간 선체가 기울어지면<br />
-              <strong>좌현(3번) / 우현(4번) 밸러스트 펌프</strong>를 즉각 가동하여 <strong>기울기 ±5.0° 이내</strong>로 수평을 유지하세요!
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">드라이도크 안전 진수식</h2>
+            <p className="text-slate-300 text-xs sm:text-[13px] max-w-md mb-3.5 leading-relaxed">
+              <strong>선수(1번) / 선미(2번) 밸브</strong>로 도크에 해수를 유입시키고,<br />
+              <strong>40% 기주 분리(Float-off)</strong> 시 <strong>좌/우현 밸러스트(3,4번)</strong>로 <strong>±5.0° 이내</strong>를 유지하세요.
             </p>
             <button
               onClick={startGame}
-              className="px-8 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-black text-base rounded-xl shadow-lg shadow-cyan-500/25 active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <Play className="w-5 h-5 fill-white" />
+              <Play className="w-4 h-4 fill-white" />
               진수 주수 시작
             </button>
           </div>
@@ -611,21 +609,21 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
 
         {/* Failure Overlay */}
         {gameOver && (
-          <div className="absolute inset-0 bg-rose-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-3 text-rose-400">
-              <AlertTriangle className="w-9 h-9" />
+          <div className="absolute inset-0 bg-rose-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-2 text-rose-400">
+              <AlertTriangle className="w-6 h-6" />
             </div>
-            <h3 className="text-2xl font-black text-white mb-1">선체 경사 한계 초과 (반목 전도 사고)</h3>
-            <p className="text-slate-300 text-sm mb-4">
-              기울기가 5.5°를 초과하여 용골 반목에서 이탈 및 도크 벽 충돌 위험으로 긴급 중단되었습니다.
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">선체 경사 한계 초과</h3>
+            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
+              기울기 초과로 용골 반목 이탈 위험이 감지되어 비상 중단되었습니다.
             </p>
-            <div className="bg-slate-900 border border-slate-800 px-6 py-3 rounded-2xl text-center mb-6">
-              <span className="text-xs text-slate-400 block mb-0.5">획득 점수</span>
-              <span className="text-2xl font-black text-rose-400">{score.toLocaleString()}점</span>
+            <div className="bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-center mb-3.5 min-w-[180px]">
+              <span className="text-[10px] text-slate-400 block mb-0.5 font-medium">획득 점수</span>
+              <span className="text-xl sm:text-2xl font-bold text-rose-400 tabular-nums">{score.toLocaleString()}점</span>
             </div>
             <button
               onClick={startGame}
-              className="px-7 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs sm:text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               재도전
@@ -635,24 +633,24 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
 
         {/* Success Overlay */}
         {success && (
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-3 text-amber-400">
-              <Sparkles className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-2 text-amber-400">
+              <Sparkles className="w-6 h-6" />
             </div>
-            <span className="text-xs font-bold text-amber-400 tracking-widest uppercase mb-1">SAFE LAUNCHING SUCCESS</span>
-            <h3 className="text-2xl sm:text-3xl font-black text-white mb-2">
+            <span className="text-[10px] font-bold text-amber-400 tracking-wider uppercase mb-1">LAUNCHING SUCCESS</span>
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">
               무사고 명품 진수식 완료!
             </h3>
-            <p className="text-slate-300 text-sm mb-4 max-w-md">
-              완벽한 수평 제어로 30만 톤급 선박이 도크 해수면에 완벽하게 부유하여 출항 준비를 마쳤습니다!
+            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
+              완벽한 수평 제어로 30만 톤급 선박이 해수면에 완벽하게 부유하여 출항 준비를 마쳤습니다.
             </p>
-            <div className="bg-slate-900 border border-slate-800 px-6 py-4 rounded-2xl text-center mb-6 min-w-[200px]">
-              <span className="text-xs text-slate-400 block mb-1">최종 공인 점수</span>
-              <span className="text-3xl font-black text-cyan-400">{score.toLocaleString()}점</span>
+            <div className="bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-center mb-3.5 min-w-[180px]">
+              <span className="text-[10px] text-slate-400 block mb-0.5 font-medium">최종 공인 점수</span>
+              <span className="text-xl sm:text-2xl font-bold text-cyan-400 tabular-nums">{score.toLocaleString()}점</span>
             </div>
             <button
               onClick={startGame}
-              className="px-7 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-black text-sm rounded-xl active:scale-95 transition-all"
+              className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl active:scale-95 transition-all cursor-pointer"
             >
               다시 진수하기
             </button>
@@ -661,76 +659,76 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
       </div>
 
       {/* Control Panel: 4 Industrial Ballast Valves & Pumps */}
-      <div className="w-full mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="w-full mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
         <button
           onClick={toggleBow}
           disabled={!isPlaying}
-          className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
+          className={`p-2 sm:p-2.5 rounded-lg border flex flex-col items-center justify-center transition-all ${
             bowValve
-              ? "bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-lg shadow-cyan-500/20 font-black scale-[1.02]"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-semibold"
+              ? "bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-md font-bold"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-medium"
           }`}
         >
-          <span className="text-xs flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-cyan-400" />
+          <span className="text-xs flex items-center gap-1.5 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
             선수 주수문 [1]
           </span>
-          <span className="text-[11px] font-bold mt-1">
-            {bowValve ? "열림 (해수 유입 중)" : "닫힘 (클릭하여 개방)"}
+          <span className="text-[10px] mt-0.5">
+            {bowValve ? "해수 유입 중" : "닫힘 (클릭)"}
           </span>
         </button>
 
         <button
           onClick={toggleStern}
           disabled={!isPlaying}
-          className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
+          className={`p-2 sm:p-2.5 rounded-lg border flex flex-col items-center justify-center transition-all ${
             sternValve
-              ? "bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-lg shadow-cyan-500/20 font-black scale-[1.02]"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-semibold"
+              ? "bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-md font-bold"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-medium"
           }`}
         >
-          <span className="text-xs flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-cyan-400" />
+          <span className="text-xs flex items-center gap-1.5 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
             선미 주수문 [2]
           </span>
-          <span className="text-[11px] font-bold mt-1">
-            {sternValve ? "열림 (해수 유입 중)" : "닫힘 (클릭하여 개방)"}
+          <span className="text-[10px] mt-0.5">
+            {sternValve ? "해수 유입 중" : "닫힘 (클릭)"}
           </span>
         </button>
 
         <button
           onClick={togglePort}
           disabled={!isPlaying}
-          className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
+          className={`p-2 sm:p-2.5 rounded-lg border flex flex-col items-center justify-center transition-all ${
             portPump
-              ? "bg-amber-500/25 border-amber-400 text-amber-200 shadow-lg shadow-amber-500/20 font-black scale-[1.02]"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-semibold"
+              ? "bg-amber-500/25 border-amber-400 text-amber-200 shadow-md font-bold"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-medium"
           }`}
         >
-          <span className="text-xs flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
+          <span className="text-xs flex items-center gap-1.5 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             좌현 밸러스트 [3]
           </span>
-          <span className="text-[11px] font-bold mt-1">
-            {portPump ? "배수 작동 중 (우현으로 회복)" : "정지 (클릭하여 배수)"}
+          <span className="text-[10px] mt-0.5">
+            {portPump ? "배수 작동 중" : "정지 (클릭)"}
           </span>
         </button>
 
         <button
           onClick={toggleStarboard}
           disabled={!isPlaying}
-          className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
+          className={`p-2 sm:p-2.5 rounded-lg border flex flex-col items-center justify-center transition-all ${
             starboardPump
-              ? "bg-amber-500/25 border-amber-400 text-amber-200 shadow-lg shadow-amber-500/20 font-black scale-[1.02]"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-semibold"
+              ? "bg-amber-500/25 border-amber-400 text-amber-200 shadow-md font-bold"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-medium"
           }`}
         >
-          <span className="text-xs flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
+          <span className="text-xs flex items-center gap-1.5 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             우현 밸러스트 [4]
           </span>
-          <span className="text-[11px] font-bold mt-1">
-            {starboardPump ? "배수 작동 중 (좌현으로 회복)" : "정지 (클릭하여 배수)"}
+          <span className="text-[10px] mt-0.5">
+            {starboardPump ? "배수 작동 중" : "정지 (클릭)"}
           </span>
         </button>
       </div>

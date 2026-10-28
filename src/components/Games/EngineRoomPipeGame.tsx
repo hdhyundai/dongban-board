@@ -521,21 +521,20 @@ export default function EngineRoomPipeGame({ onFinish }: EngineRoomPipeGameProps
   };
 
   return (
-    <div className="relative flex flex-col items-center select-none w-full max-w-[660px]">
+    <div className="relative flex flex-col items-center select-none w-full max-w-xl font-hd">
       {/* Top Status Bar */}
-      <div className="flex items-center justify-between w-full px-4 py-2 bg-slate-900 border border-slate-800 rounded-t-[16px] text-white">
+      <div className="flex items-center justify-between w-full px-4 py-2 bg-slate-900 border border-slate-800 rounded-t-xl text-white">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-cyan-400" />
-          <span className="font-bold text-[13px] text-cyan-400">스마트 의장: 기관실 복합 배관 CAD 라우팅</span>
+          <span className="font-bold text-xs sm:text-sm text-white">기관실 복합 배관 CAD 라우팅</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-[11px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">
-            <span>스테이지 {stage}</span>
-            <span className="text-cyan-400">| 해수 냉각 계통</span>
-          </div>
+        <div className="flex items-center gap-2.5">
+          <span className="text-[10px] font-bold bg-slate-800 px-2 py-0.5 rounded text-cyan-400 border border-slate-700">
+            STAGE {stage}
+          </span>
           <button
             onClick={toggleSound}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+            className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
             title={isMuted ? "음소거 해제" : "음소거"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
@@ -544,66 +543,64 @@ export default function EngineRoomPipeGame({ onFinish }: EngineRoomPipeGameProps
       </div>
 
       {/* Stats HUD Bar */}
-      <div className="grid grid-cols-4 w-full bg-slate-950 border-x border-b border-slate-800 px-3 py-2 text-center text-xs">
+      <div className="grid grid-cols-4 w-full bg-slate-950 border-x border-b border-slate-800 px-3 py-1.5 text-center text-xs">
         <div>
-          <div className="text-[10px] text-slate-400">설계 점수</div>
-          <div className="text-[16px] font-black text-amber-400 font-mono">{score.toLocaleString()}</div>
+          <div className="text-[9px] text-slate-400 font-medium">설계 점수</div>
+          <div className="text-xs sm:text-sm font-bold text-amber-400 tabular-nums">{score.toLocaleString()}점</div>
         </div>
         <div>
-          <div className="text-[10px] text-slate-400">남은 시간</div>
-          <div className={`text-[16px] font-black font-mono ${timeLeft <= 10 ? "text-rose-500 animate-pulse" : "text-white"}`}>
+          <div className="text-[9px] text-slate-400 font-medium">남은 시간</div>
+          <div className={`text-xs sm:text-sm font-bold tabular-nums ${timeLeft <= 10 ? "text-rose-500 animate-pulse" : "text-white"}`}>
             {timeLeft}초
           </div>
         </div>
         <div>
-          <div className="text-[10px] text-slate-400">배관 회로 연결</div>
-          <div className={`text-[16px] font-black font-mono ${pipeCircuitClosed ? "text-emerald-400" : "text-amber-400"}`}>
-            {pipeCircuitClosed ? "정상 연결 ✓" : "배선 중"}
+          <div className="text-[9px] text-slate-400 font-medium">회로 연결</div>
+          <div className={`text-xs sm:text-sm font-bold ${pipeCircuitClosed ? "text-emerald-400" : "text-amber-400"}`}>
+            {pipeCircuitClosed ? "완료 ✓" : "배선 중"}
           </div>
         </div>
         <div>
-          <div className="text-[10px] text-slate-400">수압 시험</div>
-          <div className="text-[16px] font-black text-cyan-400 font-mono">{pressureBar} BAR</div>
+          <div className="text-[9px] text-slate-400 font-medium">수압 시험</div>
+          <div className="text-xs sm:text-sm font-bold text-cyan-400 tabular-nums">{pressureBar} BAR</div>
         </div>
       </div>
 
       {/* Main Canvas Viewport */}
-      <div className="relative w-full aspect-[620/520] bg-slate-950 overflow-hidden border-x border-b border-slate-800 cursor-pointer">
+      <div className="relative w-full h-[330px] sm:h-[360px] bg-slate-950 overflow-hidden border-x border-b border-slate-800 cursor-pointer">
         <canvas ref={canvasRef} width={620} height={520} onClick={handleCanvasClick} className="w-full h-full block" />
 
         {/* READY Overlay */}
         {gameState === "READY" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center text-white">
-            <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-4 text-cyan-400 shadow-lg shadow-cyan-500/20">
-              <Activity className="w-8 h-8" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 sm:p-5 text-center text-white animate-in fade-in duration-200">
+            <div className="w-11 h-11 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-2 text-cyan-400 shadow-md shadow-cyan-500/20">
+              <Activity className="w-5 h-5" />
             </div>
-            <h3 className="text-xl font-black mb-2 text-white">
-              스마트 의장: 기관실 복합 배관 CAD 라우팅
+            <h3 className="text-base sm:text-lg font-bold mb-1 text-white">
+              기관실 복합 배관 CAD 라우팅
             </h3>
-            <p className="text-sm text-slate-300 max-w-md mb-6 leading-relaxed">
-              선박의 핵심 심장인 기관실(Engine Room)!
-              <br />
-              해수 펌프(Pump)에서 주엔진 냉각기(Cooler)까지 각 배관 노드를 클릭하여 회전시켜 누수 없는 최적 유체 회로를 완성하세요.
+            <p className="text-xs text-slate-300 max-w-sm mb-2.5 leading-relaxed">
+              해수 펌프(Pump)에서 주엔진 냉각기(Cooler)까지 배관 노드를 클릭하여 90°씩 회전시켜 누수 없는 냉각 유체 회로를 완성하세요.
             </p>
-            <div className="flex flex-col gap-2 text-xs text-slate-400 bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 mb-6 max-w-sm">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                <span>배관 노드를 클릭/터치하여 90도씩 회전</span>
+            <div className="flex flex-col gap-1 text-[11px] text-slate-300 bg-slate-900/90 p-2 sm:p-2.5 rounded-lg border border-slate-800 mb-3 max-w-xs text-left">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                <span>배관 노드 클릭 시 90도 회전</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span>펌프부터 냉각기까지 연결 시 푸른 냉각수 통수</span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span>양단 연결 완료 시 푸른 냉각수 통수</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span>하단 [수압 통수 시험] 버튼으로 16 BAR 가압 합격</span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span>하단 [수압 통수 시험] 16 BAR 가압 합격</span>
               </div>
             </div>
             <button
               onClick={startGame}
-              className="px-8 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-600/30 flex items-center gap-2 transition-all transform active:scale-95"
+              className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-md text-xs sm:text-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
             >
-              <Play className="w-5 h-5 fill-current" />
+              <Play className="w-4 h-4 fill-current" />
               <span>배관 CAD 설계 시작</span>
             </button>
           </div>
@@ -611,33 +608,31 @@ export default function EngineRoomPipeGame({ onFinish }: EngineRoomPipeGameProps
 
         {/* GAMEOVER Overlay */}
         {gameState === "GAMEOVER" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white animate-in fade-in duration-300">
-            <div className="w-16 h-16 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mb-3 text-cyan-400">
-              <ShieldCheck className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-5 text-center text-white animate-in fade-in duration-200">
+            <div className="w-11 h-11 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mb-2 text-cyan-400">
+              <ShieldCheck className="w-6 h-6" />
             </div>
-            <h3 className="text-2xl font-black mb-1 text-white">기관실 배관 시공 완료</h3>
-            <div className="text-xs text-slate-400 mb-4">선급(DNV/Lloyd) 수압 16 BAR 기밀 승인 완료</div>
+            <h3 className="text-base sm:text-lg font-bold mb-0.5 text-white">기관실 배관 시공 완료</h3>
+            <div className="text-[11px] text-slate-400 mb-2.5 font-medium">선급(DNV/Lloyd) 수압 16 BAR 기밀 승인 완료</div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 w-full max-w-xs mb-6 shadow-xl space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">최종 획득 점수</span>
-                <span className="text-xl font-black text-amber-400 font-mono">{score.toLocaleString()}점</span>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 w-full max-w-xs mb-3 shadow-md space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400">최종 점수</span>
+                <span className="text-base sm:text-lg font-bold text-amber-400 tabular-nums">{score.toLocaleString()}점</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">완료 스테이지</span>
-                <span className="font-bold text-cyan-400 font-mono">{stage} 단계</span>
+                <span className="text-slate-400">완료 단계</span>
+                <span className="font-bold text-cyan-400 tabular-nums">{stage} 단계</span>
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={startGame}
-                className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg flex items-center gap-2 transition-all active:scale-95 text-sm"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>재도전</span>
-              </button>
-            </div>
+            <button
+              onClick={startGame}
+              className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-95 text-xs sm:text-sm cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>재도전</span>
+            </button>
           </div>
         )}
       </div>

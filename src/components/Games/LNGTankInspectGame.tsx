@@ -47,14 +47,14 @@ export default function LNGTankInspectGame({ onFinish }: LNGTankInspectGameProps
     timeLeft: 45,
     combo: 0,
     maxCombo: 0,
-    scannerX: 300,
-    scannerY: 260,
+    scannerX: 320,
+    scannerY: 190,
     isScanning: false,
     defects: [] as Defect[],
     particles: [] as ScanParticle[],
     corrugationPhase: 0,
-    width: 620,
-    height: 520,
+    width: 640,
+    height: 380,
     lastFrameTime: 0,
     pulseTimer: 0,
     temperatureK: 111.15, // -162°C LNG temperature
@@ -529,60 +529,68 @@ export default function LNGTankInspectGame({ onFinish }: LNGTankInspectGameProps
   }, [gameState]);
 
   return (
-    <div className="relative flex flex-col items-center select-none w-full max-w-[660px]">
-      {/* Top Status Bar */}
-      <div className="flex items-center justify-between w-full px-4 py-2 bg-slate-900/90 border border-slate-800 rounded-t-[16px] text-white">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[13px]">
-            <Scan className="w-4 h-4 animate-spin-slow" />
-            <span>LNG Mark-III 멤브레인 비파괴 검사</span>
+    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
+      {/* Top Header */}
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-md shadow-cyan-500/20 shrink-0">
+            <Scan className="w-4 h-4 text-white" />
           </div>
-          <div className="hidden sm:flex items-center gap-1 text-[11px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-mono">
-            <span>극저온 -162°C</span>
-            <span className="text-cyan-400">| {tankPressure} kPa</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-white">LNG Mark-III 멤브레인 비파괴 검사</h3>
+              <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                극저온 -162°C | {tankPressure} kPa
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 font-normal hidden sm:block">
+              극저온 스테인리스 멤브레인 용접선의 결함을 레이저로 스캔하여 조치하세요.
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+
+        {/* Live Gauges */}
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">검사 시간</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${timeLeft <= 10 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
+              {timeLeft}초
+            </span>
+          </div>
+
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">결함 조치</span>
+            <span className="text-xs sm:text-sm font-bold text-emerald-400 tabular-nums">
+              {clearedCount} / {defectCount}
+            </span>
+          </div>
+
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">연속 검사</span>
+            <span className="text-xs sm:text-sm font-bold text-cyan-400 tabular-nums">{combo}x</span>
+          </div>
+
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">검사 점수</span>
+            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">{score.toLocaleString()}점</span>
+          </div>
+
           <button
             onClick={toggleSound}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-            title={isMuted ? "음소거 해제" : "음소거"}
+            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
+            title={isMuted ? "소리 켜기" : "음소거"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
           </button>
         </div>
       </div>
 
-      {/* Stats HUD Bar */}
-      <div className="grid grid-cols-4 w-full bg-slate-950 border-x border-b border-slate-800 px-3 py-2 text-center text-xs">
-        <div>
-          <div className="text-[10px] text-slate-400">검사 점수</div>
-          <div className="text-[16px] font-black text-amber-400 font-mono">{score.toLocaleString()}</div>
-        </div>
-        <div>
-          <div className="text-[10px] text-slate-400">남은 시간</div>
-          <div className={`text-[16px] font-black font-mono ${timeLeft <= 10 ? "text-rose-500 animate-pulse" : "text-white"}`}>
-            {timeLeft}초
-          </div>
-        </div>
-        <div>
-          <div className="text-[10px] text-slate-400">결함 조치</div>
-          <div className="text-[16px] font-black text-emerald-400 font-mono">
-            {clearedCount} / {defectCount}
-          </div>
-        </div>
-        <div>
-          <div className="text-[10px] text-slate-400">연속 검사</div>
-          <div className="text-[16px] font-black text-cyan-400 font-mono">{combo}x</div>
-        </div>
-      </div>
-
       {/* Main Canvas Viewport */}
-      <div className="relative w-full aspect-[620/520] bg-slate-950 overflow-hidden border-x border-b border-slate-800 cursor-crosshair">
+      <div className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[330px] sm:h-[360px] md:h-[380px] flex items-center justify-center cursor-crosshair">
         <canvas
           ref={canvasRef}
-          width={620}
-          height={520}
+          width={640}
+          height={380}
           onPointerMove={handlePointerMove}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
@@ -591,37 +599,35 @@ export default function LNGTankInspectGame({ onFinish }: LNGTankInspectGameProps
 
         {/* READY Overlay */}
         {gameState === "READY" && (
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center text-white">
-            <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-4 text-cyan-400 shadow-lg shadow-cyan-500/20">
-              <Scan className="w-8 h-8" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white z-20">
+            <div className="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mb-3 text-cyan-400 shadow-md">
+              <Scan className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-black mb-2 text-white">
+            <h3 className="text-base sm:text-lg md:text-xl font-bold mb-1 text-white">
               LNG선 멤브레인 화물창 정밀 레이저 검사
             </h3>
-            <p className="text-sm text-slate-300 max-w-md mb-6 leading-relaxed">
-              HD현대삼호의 주력 선종인 친환경 LNG 운반선!
-              <br />
-              극저온(-163°C) 스테인리스 멤브레인 주름판의 용접 시임(Seam)을 스캔하여 마이크로 기공과 균열을 전수 조치하세요.
+            <p className="text-slate-300 text-xs sm:text-[13px] max-w-sm mb-3.5 leading-relaxed font-normal">
+              HD현대삼호의 주력 친환경 선종! 극저온(-163°C) 스테인리스 멤브레인 주름판의 용접 시임(Seam) 결함을 전수 조치하세요.
             </p>
-            <div className="flex flex-col gap-2 text-xs text-slate-400 bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 mb-6 max-w-sm">
+            <div className="flex flex-col gap-1.5 text-xs text-slate-300 bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-4 max-w-xs text-left">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                <span>마우스/터치로 탐촉자(헤드)를 용접선 위로 이동</span>
+                <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
+                <span>마우스/터치로 탐촉자를 용접선 위로 이동</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-400" />
-                <span>결함 발견 시 클릭/터치 홀드로 초정밀 레이저 조사</span>
+                <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
+                <span>결함 발견 시 클릭/홀드로 초정밀 레이저 조사</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span>게이지 100% 달성 시 무결점 품질 합격 판정</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                <span>게이지 100% 달성 시 무결점 품질 합격</span>
               </div>
             </div>
             <button
               onClick={startGame}
-              className="px-8 py-3 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-600/30 flex items-center gap-2 transition-all transform active:scale-95"
+              className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center gap-2 transition-all active:scale-95"
             >
-              <Play className="w-5 h-5 fill-current" />
+              <Play className="w-4 h-4 fill-current" />
               <span>정밀 검사 시작</span>
             </button>
           </div>
@@ -629,49 +635,48 @@ export default function LNGTankInspectGame({ onFinish }: LNGTankInspectGameProps
 
         {/* GAMEOVER Overlay */}
         {gameState === "GAMEOVER" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white animate-in fade-in duration-300">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-3 text-emerald-400">
-              <ShieldCheck className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white z-20 animate-in fade-in duration-200">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-2.5 text-emerald-400">
+              <ShieldCheck className="w-7 h-7" />
             </div>
-            <h3 className="text-2xl font-black mb-1 text-white">화물창 NDT 비파괴 검사 완료</h3>
-            <div className="text-xs text-slate-400 mb-4">선급(DNV/KR) 극저온 밀폐 안전 적합 판정</div>
+            <span className="text-[10px] font-bold text-emerald-400 tracking-widest uppercase mb-1">DNV/KR 선급 합격</span>
+            <h3 className="text-base sm:text-lg md:text-xl font-bold mb-1 text-white">화물창 NDT 비파괴 검사 완료</h3>
+            <p className="text-xs text-slate-300 mb-3 max-w-sm font-normal">선급 극저온 밀폐 안전 적합 판정이 승인되었습니다.</p>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 w-full max-w-xs mb-6 shadow-xl space-y-2">
-              <div className="flex justify-between items-center text-sm">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 w-full max-w-xs mb-4 shadow-md space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-400">최종 획득 점수</span>
-                <span className="text-xl font-black text-amber-400 font-mono">{score.toLocaleString()}점</span>
+                <span className="text-base font-bold text-amber-400 tabular-nums">{score.toLocaleString()}점</span>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-400">조치 완료 결함</span>
-                <span className="font-bold text-emerald-400 font-mono">
+                <span className="font-bold text-emerald-400 tabular-nums">
                   {clearedCount} / {defectCount} ({defectCount > 0 ? Math.round((clearedCount / defectCount) * 100) : 100}%)
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-400">품질 인증 등급</span>
-                <span className="font-black text-cyan-400">
+                <span className="font-bold text-cyan-400">
                   {clearedCount === defectCount ? "AAA (무결점 명품선박)" : clearedCount >= 10 ? "AA (우수)" : "A (보통)"}
                 </span>
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={startGame}
-                className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg flex items-center gap-2 transition-all active:scale-95 text-sm"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>재검사 도전</span>
-              </button>
-            </div>
+            <button
+              onClick={startGame}
+              className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center gap-2 transition-all active:scale-95"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>재검사 도전</span>
+            </button>
           </div>
         )}
       </div>
 
       {/* Footer Instructions */}
-      <div className="w-full bg-slate-900 px-4 py-2.5 rounded-b-[16px] border border-t-0 border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-        <span>💡 팁: 결함 위에서 클릭을 유지하면 고출력 레이저 펄스로 즉각 결함을 용삭 및 조치합니다.</span>
-        <span className="text-slate-500 font-mono">HD KSOE Cryogenic QC v2.4</span>
+      <div className="w-full mt-2 bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-xl text-[11px] text-slate-400 flex items-center justify-between">
+        <span>💡 팁: 결함 위에서 클릭/터치를 유지하면 초정밀 레이저 펄스로 즉시 결함을 용삭 조치합니다.</span>
+        <span className="text-slate-500 font-mono hidden sm:inline">HD KSOE Cryogenic QC v2.4</span>
       </div>
     </div>
   );

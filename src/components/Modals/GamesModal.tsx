@@ -296,7 +296,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             <X className="w-5 h-5" />
           </button>
 
-          <div className="flex-1 p-2 sm:p-4 lg:p-6 flex flex-col items-center justify-center relative">
+          <div className="flex-1 p-2 sm:p-3 lg:p-4 flex flex-col items-center justify-center relative min-h-0 w-full font-hd">
             {activeGame === "crane" && <CraneStackGame onFinish={saveScore} />}
             {activeGame === "turnover" && <GoliathTurnoverGame onFinish={saveScore} />}
             {activeGame === "welding" && <WeldingMasterGame onFinish={saveScore} />}

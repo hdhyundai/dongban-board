@@ -393,44 +393,44 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
   }, [isPlaying, gameOver]);
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none">
+    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
       {/* Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-5 py-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xl mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-            <Cog className="w-5 h-5 text-white" />
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
+            <Cog className="w-4 h-4 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-lg text-white">선박 프로펠러 & 샤프트 얼라인먼트</h3>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                회전수: {rpm} RPM
+              <h3 className="text-sm sm:text-base font-bold text-white">선박 프로펠러 & 샤프트 얼라인먼트</h3>
+              <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                {rpm} RPM
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-medium">
+            <p className="text-xs text-slate-400 font-normal hidden sm:block">
               공진 펄스가 청색 레이저 센서 링에 도달할 때 타이밍에 맞춰 토크를 튜닝하세요!
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60 text-right">
-            <span className="text-[10px] text-slate-400 block font-medium">조율 잔여시간</span>
-            <span className={`text-base font-black ${timeLeft <= 10 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">조율 잔여시간</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${timeLeft <= 10 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
               {timeLeft}초
             </span>
           </div>
 
-          <div className="text-right">
-            <span className="text-xs text-slate-400 block font-medium">얼라인먼트 점수</span>
-            <span className="text-2xl font-black text-amber-400 tracking-tight">
-              {score.toLocaleString()}
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">얼라인먼트 점수</span>
+            <span className="text-xs sm:text-sm font-bold text-amber-400 tabular-nums">
+              {score.toLocaleString()}점
             </span>
           </div>
 
           <button
             onClick={toggleSound}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-all active:scale-95"
+            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
             title={isMuted ? "소리 켜기" : "음소거"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
@@ -441,7 +441,7 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
       {/* Main Screen */}
       <div
         onClick={handleTuneAction}
-        className="w-full relative rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 aspect-[16/9] min-h-[380px] flex items-center justify-center cursor-pointer"
+        className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[310px] sm:h-[340px] md:h-[360px] flex items-center justify-center cursor-pointer"
       >
         <canvas ref={canvasRef} className="w-full h-full" />
 
@@ -449,7 +449,7 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
         {ratingText && isPlaying && (
           <div
             key={Date.now()}
-            className="absolute top-12 left-1/2 -translate-x-1/2 font-black text-lg sm:text-xl drop-shadow-lg animate-in fade-in zoom-in-75 duration-150 pointer-events-none"
+            className="absolute top-10 left-1/2 -translate-x-1/2 font-bold text-base sm:text-lg drop-shadow-lg animate-in fade-in zoom-in-75 duration-150 pointer-events-none"
             style={{ color: ratingText.color }}
           >
             {ratingText.text}
@@ -458,28 +458,28 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
 
         {/* Combo HUD */}
         {combo > 1 && isPlaying && (
-          <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md border border-slate-700/60 px-4 py-2 rounded-xl text-white pointer-events-none animate-bounce">
-            <span className="text-[10px] text-amber-400 font-bold block uppercase tracking-widest">COMBO</span>
-            <span className="text-xl font-black text-white">{combo} 연속 일치</span>
+          <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md border border-slate-700/60 px-3 py-1.5 rounded-lg text-white pointer-events-none animate-bounce">
+            <span className="text-[9px] text-amber-400 font-bold block uppercase tracking-widest">COMBO</span>
+            <span className="text-xs sm:text-sm font-bold text-white">{combo} 연속 일치</span>
           </div>
         )}
 
         {/* Start Overlay */}
         {!isPlaying && !gameOver && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-4 text-amber-400 shadow-xl shadow-amber-500/10">
-              <Cog className="w-8 h-8" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-3 text-amber-400 shadow-md">
+              <Cog className="w-6 h-6" />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">프로펠러 축계 정렬 튜너</h2>
-            <p className="text-slate-300 text-sm max-w-md mb-6 leading-relaxed">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">프로펠러 축계 정렬 튜너</h2>
+            <p className="text-slate-300 text-xs sm:text-[13px] max-w-sm mb-4 leading-relaxed font-normal">
               70톤급 청동 프로펠러의 미세 공진을 조율합니다.<br />
               화면을 클릭하거나 <span className="text-amber-400 font-bold">[스페이스바]</span>를 눌러 원형 링에 파동이 겹치는 순간을 튜닝하세요!
             </p>
             <button
               onClick={startGame}
-              className="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-950 font-black text-base rounded-xl shadow-lg shadow-amber-500/25 active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-2"
             >
-              <Play className="w-5 h-5 fill-slate-950" />
+              <Play className="w-4 h-4 fill-slate-950" />
               정밀 얼라인먼트 개시
             </button>
           </div>
@@ -487,24 +487,24 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
 
         {/* Game Clear / 100% Torque Calibration */}
         {gameOver && (
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-3 text-amber-400">
-              <Award className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-2.5 text-amber-400">
+              <Award className="w-7 h-7" />
             </div>
-            <span className="text-xs font-bold text-amber-400 tracking-widest uppercase mb-1">ALIGNMENT PERFECT</span>
-            <h3 className="text-2xl sm:text-3xl font-black text-white mb-2">
+            <span className="text-[10px] font-bold text-amber-400 tracking-widest uppercase mb-1">ALIGNMENT COMPLETE</span>
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">
               축계 정렬 100% 오차 제로 완료!
             </h3>
-            <p className="text-slate-300 text-sm mb-4 max-w-md">
+            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm font-normal">
               완벽한 공진 댐핑으로 주기관 85 RPM 전속 항해가 승인되었습니다.
             </p>
-            <div className="bg-slate-900 border border-slate-800 px-6 py-4 rounded-2xl text-center mb-6 min-w-[200px]">
-              <span className="text-xs text-slate-400 block mb-1">최종 공인 점수</span>
-              <span className="text-3xl font-black text-amber-400">{score.toLocaleString()}점</span>
+            <div className="bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-center mb-4 min-w-[180px]">
+              <span className="text-[10px] text-slate-400 block mb-0.5">최종 공인 점수</span>
+              <span className="text-xl sm:text-2xl font-bold text-amber-400 tabular-nums">{score.toLocaleString()}점</span>
             </div>
             <button
               onClick={startGame}
-              className="px-7 py-3 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-950 font-black text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-950 font-bold text-xs sm:text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
               다시 조율하기
@@ -514,15 +514,15 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
       </div>
 
       {/* Torque Progress Bar & Spacebar Tap Button */}
-      <div className="w-full mt-4 flex flex-col sm:flex-row items-center gap-4 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+      <div className="w-full mt-2 flex flex-col sm:flex-row items-center gap-3 bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-xl">
         <div className="flex-1 w-full">
-          <div className="flex justify-between items-center text-xs mb-1.5 font-bold">
+          <div className="flex justify-between items-center text-[11px] mb-1 font-semibold">
             <span className="text-slate-300">토크 볼트 체결률 (Torque Calibration)</span>
-            <span className="text-amber-400">{torqueProgress}% / 100%</span>
+            <span className="text-amber-400 font-bold tabular-nums">{torqueProgress}% / 100%</span>
           </div>
-          <div className="w-full h-3.5 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
+          <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
             <div
-              className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 rounded-full transition-all duration-150 shadow-md"
+              className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 rounded-full transition-all duration-150 shadow-sm"
               style={{ width: `${torqueProgress}%` }}
             />
           </div>
@@ -531,9 +531,9 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
         <button
           onClick={handleTuneAction}
           disabled={!isPlaying}
-          className="w-full sm:w-auto px-7 py-3 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-amber-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0"
+          className="w-full sm:w-auto px-5 py-2 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-950 font-bold text-xs sm:text-sm rounded-lg shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
         >
-          <Zap className="w-4 h-4 fill-slate-950" />
+          <Zap className="w-3.5 h-3.5 fill-slate-950" />
           타이밍 터치 / SPACEBAR
         </button>
       </div>

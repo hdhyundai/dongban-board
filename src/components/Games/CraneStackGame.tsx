@@ -555,15 +555,17 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
   const currentShip = getShipRank(stateRef.current.blocks.length - 1);
 
   return (
-    <div className="flex flex-col items-center w-full max-w-[620px] select-none">
+    <div className="flex flex-col items-center w-full max-w-[620px] select-none font-hd">
       {/* Top Game Controls & HUD */}
-      <div className="w-full flex items-center justify-between mb-3 px-2">
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex items-center justify-between gap-3 shadow-md mb-2.5">
         <div className="flex items-center gap-2">
-          <span className="font-extrabold text-[17px] text-[#002C6C] flex items-center gap-1.5">
-            <Anchor className="w-5 h-5 text-[#007AFF]" />
+          <div className="w-8 h-8 rounded-lg bg-[#007AFF]/20 border border-[#007AFF]/40 flex items-center justify-center text-[#007AFF] shrink-0">
+            <Anchor className="w-4 h-4" />
+          </div>
+          <span className="font-bold text-sm sm:text-base text-white">
             골리앗 크레인 블록 쌓기
           </span>
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-[#007AFF]">
+          <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
             {currentShip.name}
           </span>
         </div>
@@ -571,10 +573,10 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={toggleSound}
-            className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
             title={isMuted ? "소리 켜기" : "음소거"}
           >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-[#007AFF]" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
           </button>
         </div>
       </div>
@@ -585,7 +587,7 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
           if (gameState === "PLAYING") dropBlock();
           else if (gameState === "READY" || gameState === "GAMEOVER") startGame();
         }}
-        className="relative w-full h-[460px] sm:h-[480px] bg-slate-900 rounded-[20px] overflow-hidden shadow-2xl border-2 border-slate-700 cursor-pointer touch-none"
+        className="relative w-full h-[360px] sm:h-[400px] bg-slate-900 rounded-xl overflow-hidden shadow-2xl border border-slate-800 cursor-pointer touch-none"
       >
         <canvas
           ref={canvasRef}
@@ -596,27 +598,27 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
 
         {/* Live In-Game Floating HUD */}
         {gameState === "PLAYING" && (
-          <div className="absolute top-6 left-4 right-4 flex justify-between items-start pointer-events-none">
-            <div className="bg-black/60 backdrop-blur-md px-3.5 py-2 rounded-[14px] border border-white/10 text-white">
-              <div className="text-[10px] font-bold text-gray-400">건조 높이</div>
-              <div className="text-[20px] font-black text-[#FFD700] tabular-nums">
+          <div className="absolute top-4 left-3 right-3 flex justify-between items-start pointer-events-none">
+            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-white">
+              <div className="text-[9px] font-medium text-gray-400">건조 높이</div>
+              <div className="text-base sm:text-lg font-bold text-[#FFD700] tabular-nums">
                 {Math.max(0, stateRef.current.blocks.length - 1)}
-                <span className="text-[13px] font-bold text-gray-300 ml-1">블록</span>
+                <span className="text-xs font-medium text-gray-300 ml-1">블록</span>
               </div>
             </div>
 
             {/* Score & Combo */}
             <div className="flex flex-col items-end gap-1">
-              <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-[14px] border border-white/10 text-white text-right">
-                <div className="text-[10px] font-bold text-gray-400">건조 포인트</div>
-                <div className="text-[22px] font-black text-[#34C759] tabular-nums">
+              <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-white text-right">
+                <div className="text-[9px] font-medium text-gray-400">건조 포인트</div>
+                <div className="text-base sm:text-lg font-bold text-[#34C759] tabular-nums">
                   {score.toLocaleString()}
                 </div>
               </div>
 
               {combo > 1 && (
-                <div className="bg-gradient-to-r from-amber-500 to-red-500 px-3 py-1 rounded-full text-white font-black text-[12px] shadow-lg animate-bounce flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5" />
+                <div className="bg-gradient-to-r from-amber-500 to-red-500 px-2.5 py-0.5 rounded-full text-white font-bold text-[11px] shadow-lg animate-bounce flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
                   COMBO x{combo}
                 </div>
               )}
@@ -628,7 +630,7 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
         {feedbackText && gameState === "PLAYING" && (
           <div
             key={feedbackText.text + Date.now()}
-            className="absolute top-28 left-1/2 -translate-x-1/2 pointer-events-none font-black text-[24px] sm:text-[30px] drop-shadow-md animate-out fade-out zoom-out-95 duration-500"
+            className="absolute top-20 left-1/2 -translate-x-1/2 pointer-events-none font-bold text-xl sm:text-2xl drop-shadow-md animate-out fade-out zoom-out-95 duration-500"
             style={{ color: feedbackText.color }}
           >
             {feedbackText.text}
@@ -637,21 +639,21 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
 
         {/* READY / START SCREEN OVERLAY */}
         {gameState === "READY" && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center text-white">
-            <div className="w-16 h-16 rounded-2xl bg-[#007AFF]/20 border border-[#007AFF]/50 flex items-center justify-center mb-4 text-[#007AFF] shadow-inner">
-              <Anchor className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white">
+            <div className="w-12 h-12 rounded-xl bg-[#007AFF]/20 border border-[#007AFF]/40 flex items-center justify-center mb-3 text-[#007AFF] shadow-inner">
+              <Anchor className="w-6 h-6" />
             </div>
-            <h2 className="text-[26px] font-black tracking-tight mb-2">
-              골리앗 크레인 블록 쌓기
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight mb-1.5 text-white">
+              골리앗 크레인 블록 탑재
             </h2>
-            <p className="text-gray-300 text-[14px] max-w-sm mb-6 leading-relaxed">
-              화면을 클릭하거나 <span className="text-yellow-400 font-bold bg-white/10 px-2 py-0.5 rounded">스페이스바</span>를 눌러 선박 블록을 안착시키세요! 완벽한 타이밍에 쌓으면 콤보 보너스가 발동합니다.
+            <p className="text-slate-300 text-xs sm:text-[13px] max-w-sm mb-4 leading-relaxed">
+              화면을 클릭하거나 <span className="text-amber-400 font-bold bg-white/10 px-1.5 py-0.5 rounded">스페이스바</span>를 눌러 선박 블록을 안착시키세요.<br />오차 없이 연속 안착 시 콤보 보너스가 발동합니다.
             </p>
             <button
               onClick={startGame}
-              className="bg-[#007AFF] hover:bg-[#0056b3] text-white px-8 py-3.5 rounded-full text-[17px] font-bold shadow-xl active:scale-95 transition-transform flex items-center gap-2"
+              className="bg-[#007AFF] hover:bg-[#0062cc] text-white px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-lg active:scale-95 transition-transform flex items-center gap-2 cursor-pointer"
             >
-              <Play className="w-5 h-5 fill-current" />
+              <Play className="w-4 h-4 fill-current" />
               크레인 가동하기
             </button>
           </div>
@@ -659,23 +661,23 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
 
         {/* GAME OVER SCREEN OVERLAY */}
         {gameState === "GAMEOVER" && (
-          <div className="absolute inset-0 bg-black/75 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white animate-in fade-in duration-300">
-            <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center mb-3 text-red-400">
-              <Trophy className="w-8 h-8" />
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white animate-in fade-in duration-200">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-2.5 text-amber-400">
+              <Trophy className="w-6 h-6" />
             </div>
-            <h3 className="text-[22px] font-black mb-1">건조 완료!</h3>
-            <div className="text-[13px] text-gray-300 mb-4 font-semibold">
-              최종 등급: <span className="text-yellow-400 font-bold">{currentShip.name}</span>
+            <h3 className="text-lg sm:text-xl font-bold mb-1 text-white">선체 블록 탑재 완료</h3>
+            <div className="text-xs text-slate-300 mb-3 font-medium">
+              최종 등급: <span className="text-amber-400 font-bold">{currentShip.name}</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 w-full max-w-xs mb-6">
-              <div className="bg-white/10 rounded-[14px] p-3 text-center border border-white/10">
-                <div className="text-[11px] text-gray-400 font-bold">최종 점수</div>
-                <div className="text-[22px] font-black text-[#34C759]">{score.toLocaleString()}</div>
+            <div className="grid grid-cols-2 gap-2.5 w-full max-w-xs mb-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-center">
+                <div className="text-[10px] text-slate-400 font-medium">최종 점수</div>
+                <div className="text-lg sm:text-xl font-bold text-[#34C759]">{score.toLocaleString()}점</div>
               </div>
-              <div className="bg-white/10 rounded-[14px] p-3 text-center border border-white/10">
-                <div className="text-[11px] text-gray-400 font-bold">건조 높이</div>
-                <div className="text-[22px] font-black text-[#FFD700]">
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-center">
+                <div className="text-[10px] text-slate-400 font-medium">건조 높이</div>
+                <div className="text-lg sm:text-xl font-bold text-[#FFD700]">
                   {Math.max(0, stateRef.current.blocks.length - 1)}층
                 </div>
               </div>
@@ -683,9 +685,9 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
 
             <button
               onClick={startGame}
-              className="bg-[#007AFF] hover:bg-[#0056b3] text-white px-8 py-3.5 rounded-full text-[16px] font-bold shadow-xl active:scale-95 transition-transform flex items-center gap-2"
+              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md active:scale-95 transition-transform flex items-center gap-2 cursor-pointer"
             >
-              <RotateCcw className="w-5 h-5" />
+              <RotateCcw className="w-4 h-4" />
               다시 도전하기
             </button>
           </div>
@@ -693,10 +695,10 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
       </div>
 
       {/* Footer Instructions */}
-      <div className="mt-3 text-[12px] text-gray-500 flex items-center gap-4">
+      <div className="mt-2 text-xs text-slate-400 flex items-center gap-3">
         <span>💡 조작법: 마우스 클릭 / 터치 / 스페이스바</span>
         <span>•</span>
-        <span>오차 4px 이하: 콤보(PERFECT) 발동</span>
+        <span>오차 4px 이하 시 PERFECT 콤보</span>
       </div>
     </div>
   );

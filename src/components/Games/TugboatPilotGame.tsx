@@ -796,52 +796,52 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col items-center select-none font-sans">
+    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
       {/* Top Telemetry Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
-            <Compass className="w-5 h-5 text-white" />
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-sky-600 flex items-center justify-center shadow-md shadow-sky-500/20 shrink-0">
+            <Compass className="w-4 h-4 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-base sm:text-lg text-white">영암호 초대형선 예인 파일럿</h3>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">
+              <h3 className="font-bold text-sm sm:text-base text-white">영암호 예인 파일럿</h3>
+              <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 shrink-0">
                 구역 {stage}/3
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-medium">
+            <p className="text-xs text-slate-400 font-normal hidden sm:block">
               선수·선미 예인선 추력 벡터를 조타하여 30만 톤급 선박을 안벽에 감속 평행 접안하세요.
             </p>
           </div>
         </div>
 
         {/* Live Gauges */}
-        <div className="flex items-center gap-4 text-xs font-semibold">
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">선박 접근 속도</span>
-            <span className={`text-base font-black ${telemetry.speedKts > 0.45 ? "text-rose-400" : "text-emerald-400"}`}>
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">접근 속도</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${telemetry.speedKts > 0.45 ? "text-rose-400" : "text-emerald-400"}`}>
               {telemetry.speedKts} kts
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">선체 평행 각도</span>
-            <span className={`text-base font-black ${Math.abs(telemetry.angleDeg % 180) > 6 ? "text-amber-400" : "text-sky-400"}`}>
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">선체 각도</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${Math.abs(telemetry.angleDeg % 180) > 6 ? "text-amber-400" : "text-sky-400"}`}>
               {telemetry.angleDeg}°
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">하버 스코어</span>
-            <span className="text-base font-black text-sky-400">
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">하버 스코어</span>
+            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">
               {score.toLocaleString()}점
             </span>
           </div>
 
           <button
             onClick={toggleSound}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-all active:scale-95"
+            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
             title={isMuted ? "소리 켜기" : "음소거"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
@@ -850,51 +850,50 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
       </div>
 
       {/* Main Canvas Viewport */}
-      <div className="w-full relative rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 aspect-[16/9] min-h-[400px] flex items-center justify-center">
-        <canvas ref={canvasRef} className="w-full h-full" />
+      <div className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[310px] sm:h-[340px] md:h-[360px] flex items-center justify-center">
+        <canvas ref={canvasRef} className="w-full h-full block" />
 
         {/* Start Overlay */}
         {!isPlaying && !gameOver && !stageCleared && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-            <div className="w-16 h-16 rounded-2xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center mb-4 text-sky-400 shadow-xl shadow-sky-500/10">
-              <Anchor className="w-8 h-8" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in duration-200">
+            <div className="w-12 h-12 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center mb-2.5 text-sky-400 shadow-lg shadow-sky-500/10">
+              <Anchor className="w-6 h-6" />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">하버 예인선 실시간 정밀 도킹</h2>
-            <p className="text-slate-300 text-sm max-w-lg mb-6 leading-relaxed">
-              가만히 있으면 거센 조류와 돌풍에 의해 선박이 암초나 방파제에 좌초됩니다!<br />
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">하버 예인선 실시간 정밀 도킹</h2>
+            <p className="text-slate-300 text-xs sm:text-[13px] max-w-md mb-3.5 leading-relaxed">
               <strong>TAB키 또는 버튼</strong>으로 선수 1호기 / 선미 2호기를 전환하고,<br />
-              <strong>방향키 (W,A,S,D)</strong>로 360° 추력을 조타하여 안벽 녹색 구역에 <strong>0.45 kts 이하</strong>로 정밀 접안하세요.
+              <strong>방향키 (W,A,S,D)</strong>로 360° 추력을 조타하여 <strong>0.45 kts 이하</strong>로 정밀 접안하세요.
             </p>
             <button
               onClick={startGame}
-              className="px-8 py-3.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-black text-base rounded-xl shadow-lg shadow-sky-500/25 active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <Play className="w-5 h-5 fill-white" />
-              예인선 하버 작전 출항
+              <Play className="w-4 h-4 fill-white" />
+              예인 작전 출항
             </button>
           </div>
         )}
 
         {/* Stage Cleared */}
         {stageCleared && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-3 text-emerald-400">
-              <Award className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-2 text-emerald-400">
+              <Award className="w-6 h-6" />
             </div>
-            <h3 className="text-2xl font-black text-white mb-1">
-              구역 {stage} 무사고 안벽 완벽 접안 성공!
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">
+              구역 {stage} 무사고 안벽 접안 성공!
             </h3>
-            <p className="text-slate-300 text-sm mb-4">
-              안전 접근 속도 준수 및 요코하마 펜더 완충 안착으로 하버 안전 등급 A+를 획득했습니다.
+            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
+              안전 접근 속도 준수 및 펜더 완충 안착으로 하버 안전 등급 A+를 획득했습니다.
             </p>
             <button
               onClick={() => {
                 setStageCleared(false);
                 setStage(stage + 1);
               }}
-              className="px-7 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              다음 구역 ({stage + 1}/3) 항해 출항
+              다음 구역 ({stage + 1}/3) 항해
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -902,21 +901,21 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
 
         {/* Game Over */}
         {gameOver && (
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-3 text-rose-400">
-              <ShieldAlert className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-2 text-rose-400">
+              <ShieldAlert className="w-6 h-6" />
             </div>
-            <h3 className="text-2xl font-black text-white mb-1">선체 접촉 사고 / 좌초 발생</h3>
-            <p className="text-slate-300 text-sm mb-4">
-              안벽 진입 속도 초과(0.45 kts 이상 충격) 또는 조류 표류로 예인 작전이 실패했습니다.
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">선체 접촉 사고 / 좌초</h3>
+            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
+              안벽 진입 속도 초과(0.45 kts 이상) 또는 조류 표류로 작전이 실패했습니다.
             </p>
-            <div className="bg-slate-900 border border-slate-800 px-6 py-3 rounded-2xl text-center mb-6">
-              <span className="text-xs text-slate-400 block mb-0.5">최종 하버 스코어</span>
-              <span className="text-2xl font-black text-sky-400">{score.toLocaleString()}점</span>
+            <div className="bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-center mb-3.5 min-w-[180px]">
+              <span className="text-[10px] text-slate-400 block mb-0.5 font-medium">최종 하버 스코어</span>
+              <span className="text-xl sm:text-2xl font-bold text-sky-400 tabular-nums">{score.toLocaleString()}점</span>
             </div>
             <button
               onClick={startGame}
-              className="px-7 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs sm:text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               예인 작전 재도전
@@ -926,69 +925,69 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
       </div>
 
       {/* Interactive ASD Tugboat Flight Deck Controls */}
-      <div className="w-full mt-3 bg-slate-900/90 border border-slate-800 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-        {/* Tugboat Selector (Switching keeps continuous ship state!) */}
-        <div className="flex items-center gap-2">
+      <div className="w-full mt-2 bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-2">
+        {/* Tugboat Selector */}
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => {
               setActiveTugId("bow");
               gameAudio.playClick();
             }}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTugId === "bow"
-                ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-lg shadow-orange-500/30 scale-105"
+                ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-md shadow-orange-500/30"
                 : "bg-slate-800 text-slate-400 hover:text-white"
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            선수 1호기 (7,500 HP)
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            선수 1호기
           </button>
           <button
             onClick={() => {
               setActiveTugId("stern");
               gameAudio.playClick();
             }}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTugId === "stern"
-                ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/30 scale-105"
+                ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md shadow-sky-500/30"
                 : "bg-slate-800 text-slate-400 hover:text-white"
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            선미 2호기 (6,000 HP)
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            선미 2호기
           </button>
-          <span className="text-[11px] text-slate-400 hidden lg:inline ml-2 font-medium">
-            (TAB키 / 숫자 1,2키로 즉시 전환)
+          <span className="text-[10px] text-slate-400 hidden sm:inline ml-1 font-normal">
+            (TAB키 전환)
           </span>
         </div>
 
-        {/* Precision Azimuth Thruster Steering Controls */}
-        <div className="flex items-center gap-2">
+        {/* Steering Controls */}
+        <div className="flex items-center gap-1">
           <button
             onClick={() => adjustTug(0, -0.25)}
-            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-white font-bold text-xs active:scale-95 transition-all border border-slate-700"
-            title="좌현 360° 선회 조타 (A/Left)"
+            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-white font-bold text-xs active:scale-95 transition-all border border-slate-700"
+            title="좌현 선회 (A/Left)"
           >
             ◀ 좌조타
           </button>
           <button
             onClick={() => adjustTug(0.25, 0)}
-            className="px-3.5 py-2 bg-sky-600 hover:bg-sky-500 rounded-xl text-white font-bold text-xs active:scale-95 transition-all shadow-md shadow-sky-600/20"
-            title="추력 증속 (W/Up)"
+            className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 rounded-lg text-white font-bold text-xs active:scale-95 transition-all shadow-sm"
+            title="전진 추력 (W/Up)"
           >
-            ▲ 전진 추력
+            ▲ 전진
           </button>
           <button
             onClick={() => adjustTug(-0.25, 0)}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-white font-bold text-xs active:scale-95 transition-all border border-slate-700"
+            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-white font-bold text-xs active:scale-95 transition-all border border-slate-700"
             title="후진 감속 (S/Down)"
           >
-            ▼ 감속/후진
+            ▼ 감속
           </button>
           <button
             onClick={() => adjustTug(0, 0.25)}
-            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-white font-bold text-xs active:scale-95 transition-all border border-slate-700"
-            title="우현 360° 선회 조타 (D/Right)"
+            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-white font-bold text-xs active:scale-95 transition-all border border-slate-700"
+            title="우현 선회 (D/Right)"
           >
             우조타 ▶
           </button>
@@ -998,10 +997,10 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
               simRef.current.tugStern.thrust = 0;
               gameAudio.playDrop();
             }}
-            className="px-3 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-xs rounded-xl active:scale-95 transition-all ml-1"
+            className="px-2.5 py-1.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-xs rounded-lg active:scale-95 transition-all"
             title="추력 정지 (Space)"
           >
-            추력 중립
+            중립
           </button>
         </div>
       </div>

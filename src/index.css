@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@layer base {
+  :root {
+    --font-hd: "HD Hyundai", "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  }
+  html, body, button, input, select, textarea {
+    font-family: var(--font-hd);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -7,6 +18,9 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+  .font-hd {
+    font-family: var(--font-hd);
   }
 }
 

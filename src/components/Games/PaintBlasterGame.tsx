@@ -366,55 +366,55 @@ export default function PaintBlasterGame({ onFinish }: PaintBlasterGameProps) {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col items-center select-none font-sans">
+    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
       {/* Top Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg shadow-pink-500/20">
-            <Brush className="w-5 h-5 text-white" />
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-md shadow-pink-500/20 shrink-0">
+            <Brush className="w-4 h-4 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-base sm:text-lg text-white">선체 친환경 에어리스 도장 블래스터</h3>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30">
-                {stage === 1 ? "1차: 선저 방오도료 (Anti-fouling)" : stage === 2 ? "2차: 외판 에폭시 프라이머" : "3차: 상갑판 우레탄 탑코트"}
+              <h3 className="font-bold text-sm sm:text-base text-white">선체 에어리스 도장</h3>
+              <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30 shrink-0">
+                {stage === 1 ? "1차: 방오도료" : stage === 2 ? "2차: 에폭시 프라이머" : "3차: 우레탄 탑코트"}
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-medium">
-              마우스를 드래그하여 고압 분사하고, 한곳에 머물지 말고 균일하게 94% 이상 도포하세요!
+            <p className="text-xs text-slate-400 font-normal hidden sm:block">
+              마우스를 드래그하여 고압 분사하고, 균일하게 94% 이상 도포하세요.
             </p>
           </div>
         </div>
 
         {/* Live Gauges */}
-        <div className="flex items-center gap-4 text-xs font-semibold">
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">남은 검사 시간</span>
-            <span className={`text-base font-black ${timeLeft <= 10 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
+        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">검사 시간</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${timeLeft <= 10 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
               {timeLeft}초
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">도포율 (목표 94%)</span>
-            <span className="text-base font-black text-cyan-400">{coverage}%</span>
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">도포율 (94%)</span>
+            <span className="text-xs sm:text-sm font-bold text-cyan-400 tabular-nums">{coverage}%</span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">흘러내림 결함</span>
-            <span className={`text-base font-black ${paintSagging > 20 ? "text-rose-400" : "text-slate-300"}`}>
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">흘러내림</span>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ${paintSagging > 20 ? "text-rose-400" : "text-slate-300"}`}>
               {paintSagging}점
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">도장 스코어</span>
-            <span className="text-base font-black text-sky-400">{score.toLocaleString()}점</span>
+          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium">도장 스코어</span>
+            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">{score.toLocaleString()}점</span>
           </div>
 
           <button
             onClick={toggleSound}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-all active:scale-95"
+            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
             title={isMuted ? "소리 켜기" : "음소거"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
@@ -423,7 +423,7 @@ export default function PaintBlasterGame({ onFinish }: PaintBlasterGameProps) {
       </div>
 
       {/* Main Canvas Viewport */}
-      <div className="w-full relative rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 aspect-[16/9] min-h-[400px] flex items-center justify-center cursor-crosshair">
+      <div className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[310px] sm:h-[340px] md:h-[360px] flex items-center justify-center cursor-crosshair">
         <canvas
           ref={canvasRef}
           onPointerDown={handlePointerDown}
@@ -435,21 +435,20 @@ export default function PaintBlasterGame({ onFinish }: PaintBlasterGameProps) {
 
         {/* Start Overlay */}
         {!isPlaying && !gameOver && !stageCleared && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-            <div className="w-16 h-16 rounded-2xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center mb-4 text-pink-400 shadow-xl shadow-pink-500/10">
-              <Brush className="w-8 h-8" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in duration-200">
+            <div className="w-12 h-12 rounded-xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center mb-2.5 text-pink-400 shadow-lg shadow-pink-500/10">
+              <Brush className="w-6 h-6" />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">선체 에어리스 도장 블래스터</h2>
-            <p className="text-slate-300 text-sm max-w-lg mb-6 leading-relaxed">
-              가만히 있으면 도포가 진행되지 않으며 <strong>35초 제한시간</strong>이 만료됩니다!<br />
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">선체 에어리스 도장 블래스터</h2>
+            <p className="text-slate-300 text-xs sm:text-[13px] max-w-md mb-3.5 leading-relaxed">
               마우스를 누른 채 강판을 스캔하듯 분사하여 <strong>도포율 94%</strong>를 달성하세요.<br />
               한 곳에 오래 머물면 <strong>도막 흘러내림(Sagging)</strong> 감점이 발생합니다!
             </p>
             <button
               onClick={startGame}
-              className="px-8 py-3.5 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-black text-base rounded-xl shadow-lg shadow-pink-500/25 active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <Play className="w-5 h-5 fill-white" />
+              <Play className="w-4 h-4 fill-white" />
               도장 스프레이 가동
             </button>
           </div>
@@ -457,19 +456,19 @@ export default function PaintBlasterGame({ onFinish }: PaintBlasterGameProps) {
 
         {/* Stage Cleared */}
         {stageCleared && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-3 text-emerald-400">
-              <CheckCircle2 className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-2 text-emerald-400">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
-            <h3 className="text-2xl font-black text-white mb-1">
-              {stage}차 도막 품질 검사 합격!
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">
+              {stage}차 도막 품질 합격!
             </h3>
-            <p className="text-slate-300 text-sm mb-4">
+            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
               규정 건조 도막 두께(DFT) 및 표면 평탄도를 완벽하게 충족했습니다.
             </p>
             <button
               onClick={nextStage}
-              className="px-7 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all"
+              className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer"
             >
               다음 도장 구역 ({stage + 1}/3) 진행 →
             </button>
@@ -478,23 +477,23 @@ export default function PaintBlasterGame({ onFinish }: PaintBlasterGameProps) {
 
         {/* Game Over */}
         {gameOver && (
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-3 text-rose-400">
-              <AlertCircle className="w-9 h-9" />
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-2 text-rose-400">
+              <AlertCircle className="w-6 h-6" />
             </div>
-            <h3 className="text-2xl font-black text-white mb-1">
-              {coverage >= 94 ? "3단계 전체 도장 공정 완공!" : "도장 제한시간 초과 / 품질 불합격"}
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">
+              {coverage >= 94 ? "전체 도장 공정 완공!" : "도장 제한시간 초과"}
             </h3>
-            <p className="text-slate-300 text-sm mb-4">
-              {coverage >= 94 ? "30만 톤급 선체 도장 공정을 최고 품질로 완수했습니다." : "35초 이내에 목표 도포율(94%)을 달성하지 못했습니다."}
+            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
+              {coverage >= 94 ? "30만 톤급 선체 도장 공정을 최고 품질로 완수했습니다." : "제한시간 내에 목표 도포율(94%)을 달성하지 못했습니다."}
             </p>
-            <div className="bg-slate-900 border border-slate-800 px-6 py-4 rounded-2xl text-center mb-6 min-w-[200px]">
-              <span className="text-xs text-slate-400 block mb-1">최종 공정 스코어</span>
-              <span className="text-3xl font-black text-pink-400">{score.toLocaleString()}점</span>
+            <div className="bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-center mb-3.5 min-w-[180px]">
+              <span className="text-[10px] text-slate-400 block mb-0.5 font-medium">최종 공정 스코어</span>
+              <span className="text-xl sm:text-2xl font-bold text-pink-400 tabular-nums">{score.toLocaleString()}점</span>
             </div>
             <button
               onClick={startGame}
-              className="px-7 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs sm:text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               재도전
@@ -504,33 +503,32 @@ export default function PaintBlasterGame({ onFinish }: PaintBlasterGameProps) {
       </div>
 
       {/* Nozzle Switch & Control Bar */}
-      <div className="w-full mt-3 bg-slate-900/90 border border-slate-800 p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      <div className="w-full mt-2 bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="text-xs font-bold text-slate-300">노즐 분사 각도:</span>
           <button
             onClick={() => setNozzleMode("wide")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               nozzleMode === "wide"
-                ? "bg-pink-600 text-white shadow-md shadow-pink-600/30 font-black"
+                ? "bg-pink-600 text-white shadow-sm"
                 : "bg-slate-800 text-slate-400 hover:text-white"
             }`}
           >
-            광각 와이드 팬 (넓은 면적)
+            광각 와이드 팬
           </button>
           <button
             onClick={() => setNozzleMode("focus")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               nozzleMode === "focus"
-                ? "bg-pink-600 text-white shadow-md shadow-pink-600/30 font-black"
+                ? "bg-pink-600 text-white shadow-sm"
                 : "bg-slate-800 text-slate-400 hover:text-white"
             }`}
           >
-            정밀 집중 노즐 (모서리/용접선)
+            정밀 집중 노즐
           </button>
         </div>
-
-        <div className="text-xs text-slate-400 font-medium">
-          팁: 마우스를 일정한 속도로 이동해야 도막 눈물(Sagging) 감점을 피할 수 있습니다.
+        <div className="text-[11px] text-slate-400 hidden sm:block">
+          강판 도포 목표: 94% 이상
         </div>
       </div>
     </div>
