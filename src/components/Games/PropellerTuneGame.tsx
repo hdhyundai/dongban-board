@@ -22,10 +22,12 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
   const [torqueProgress, setTorqueProgress] = useState(0); // 0 to 100%
   const [rpm, setRpm] = useState(0);
   const [ratingText, setRatingText] = useState<{ text: string; color: string } | null>(null);
+  const [timeLeft, setTimeLeft] = useState(35);
   const [gameOver, setGameOver] = useState(false);
   const [isMuted, setIsMuted] = useState(gameAudio.getMuted());
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const timeLeftRef = useRef(35);
   const stateRef = useRef({
     propellerAngle: 0,
     propellerSpeed: 1.2, // rad/s
@@ -53,6 +55,8 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
     setTorqueProgress(0);
     setRpm(15);
     setRatingText(null);
+    setTimeLeft(35);
+    timeLeftRef.current = 35;
 
     stateRef.current = {
       propellerAngle: 0,
@@ -66,6 +70,23 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
       particles: [],
     };
   };
+
+  // Countdown timer
+  useEffect(() => {
+    if (!isPlaying || gameOver) return;
+    const interval = setInterval(() => {
+      timeLeftRef.current -= 1;
+      setTimeLeft(timeLeftRef.current);
+      if (timeLeftRef.current <= 0) {
+        clearInterval(interval);
+        gameAudio.playDrop();
+        setGameOver(true);
+        setIsPlaying(false);
+        onFinish(stateRef.current.score);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isPlaying, gameOver, onFinish]);
 
   const handleTuneAction = () => {
     if (!isPlaying || gameOver) return;
@@ -217,7 +238,9 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
           if (!p.hit) {
             // Pulse passed without hitting
             st.combo = 0;
+            st.torque = Math.max(0, st.torque - 4);
             setCombo(0);
+            setTorqueProgress(Math.round(st.torque));
           }
           st.pulses.splice(i, 1);
         }
@@ -391,6 +414,13 @@ export default function PropellerTuneGame({ onFinish }: PropellerTuneGameProps) 
         </div>
 
         <div className="flex items-center gap-4">
+          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60 text-right">
+            <span className="text-[10px] text-slate-400 block font-medium">조율 잔여시간</span>
+            <span className={`text-base font-black ${timeLeft <= 10 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
+              {timeLeft}초
+            </span>
+          </div>
+
           <div className="text-right">
             <span className="text-xs text-slate-400 block font-medium">얼라인먼트 점수</span>
             <span className="text-2xl font-black text-amber-400 tracking-tight">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Play, RotateCcw, Volume2, VolumeX, Waves, AlertTriangle, ShieldCheck, Sparkles } from "lucide-react";
+import { Play, RotateCcw, Volume2, VolumeX, Waves, AlertTriangle, ShieldCheck, Sparkles, Droplets, Gauge } from "lucide-react";
+import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
 
 interface DockWaterGameProps {
@@ -13,10 +14,11 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
   const [score, setScore] = useState(0);
   const [waterLevel, setWaterLevel] = useState(0); // 0 to 100%
   const [shipAngle, setShipAngle] = useState(0); // degrees tilt (-5 to +5)
-  const [bowValve, setBowValve] = useState(false); // 선수
-  const [sternValve, setSternValve] = useState(false); // 선미
-  const [portPump, setPortPump] = useState(false); // 좌현 배수
-  const [starboardPump, setStarboardPump] = useState(false); // 우현 배수
+  const [bowValve, setBowValve] = useState(false); // 선수 주수문
+  const [sternValve, setSternValve] = useState(false); // 선미 주수문
+  const [portPump, setPortPump] = useState(false); // 좌현 배수/밸러스트
+  const [starboardPump, setStarboardPump] = useState(false); // 우현 배수/밸러스트
+  const [phase, setPhase] = useState<1 | 2 | 3>(1); // 1: 선저 주수, 2: 기주 분리(Float-off), 3: 도크 개방
   const [isMuted, setIsMuted] = useState(gameAudio.getMuted());
   const [warningMsg, setWarningMsg] = useState("");
 
@@ -24,13 +26,15 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
   const stateRef = useRef({
     waterLevel: 0,
     angle: 0,
+    angularVelocity: 0,
     bowValve: false,
     sternValve: false,
     portPump: false,
     starboardPump: false,
     score: 0,
     timeElapsed: 0,
-    confetti: [] as { x: number; y: number; vx: number; vy: number; color: string; size: number }[],
+    liftOffAnnounced: false,
+    waterParticles: [] as Array<{ x: number; y: number; vx: number; vy: number; life: number; color: string }>,
   });
 
   const toggleSound = () => {
@@ -40,14 +44,18 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
 
   const startGame = () => {
     gameAudio.playClick();
+    gameAudio.playValveTurn();
     setIsPlaying(true);
     setGameOver(false);
     setSuccess(false);
     setScore(0);
     setWaterLevel(0);
     setShipAngle(0);
-    setBowValve(true);
-    setSternValve(true);
+    setPhase(1);
+
+    // CRITICAL: All valves start CLOSED so sitting still does NOT auto-complete the game!
+    setBowValve(false);
+    setSternValve(false);
     setPortPump(false);
     setStarboardPump(false);
     setWarningMsg("");
@@ -55,18 +63,21 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
     stateRef.current = {
       waterLevel: 0,
       angle: 0,
-      bowValve: true,
-      sternValve: true,
+      angularVelocity: 0,
+      bowValve: false,
+      sternValve: false,
       portPump: false,
       starboardPump: false,
       score: 0,
       timeElapsed: 0,
-      confetti: [],
+      liftOffAnnounced: false,
+      waterParticles: [],
     };
   };
 
-  // Toggle valves & pumps
+  // Toggle individual valve controls
   const toggleBow = () => {
+    if (!isPlaying || gameOver || success) return;
     gameAudio.playValveTurn();
     setBowValve((prev) => {
       stateRef.current.bowValve = !prev;
@@ -75,6 +86,7 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
   };
 
   const toggleStern = () => {
+    if (!isPlaying || gameOver || success) return;
     gameAudio.playValveTurn();
     setSternValve((prev) => {
       stateRef.current.sternValve = !prev;
@@ -83,6 +95,7 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
   };
 
   const togglePort = () => {
+    if (!isPlaying || gameOver || success) return;
     gameAudio.playWaterRush();
     setPortPump((prev) => {
       stateRef.current.portPump = !prev;
@@ -91,6 +104,7 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
   };
 
   const toggleStarboard = () => {
+    if (!isPlaying || gameOver || success) return;
     gameAudio.playWaterRush();
     setStarboardPump((prev) => {
       stateRef.current.starboardPump = !prev;
@@ -98,12 +112,22 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
     });
   };
 
+  // Keyboard shortcut handlers
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isPlaying || gameOver || success) return;
+      if (e.key === "1") toggleBow();
+      else if (e.key === "2") toggleStern();
+      else if (e.key === "3") togglePort();
+      else if (e.key === "4") toggleStarboard();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPlaying, gameOver, success]);
+
+  // Main simulation loop
   useEffect(() => {
     if (!isPlaying || gameOver || success) return;
-
-    let animId: number;
-    let lastTime = performance.now();
-    let waveOffset = 0;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -117,255 +141,375 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
     const w = rect.width;
     const h = rect.height;
 
-    const loop = (now: number) => {
-      const dt = Math.min((now - lastTime) / 1000, 0.1);
-      lastTime = now;
-      waveOffset += dt * 3;
+    let animId: number;
+    let lastTime = performance.now();
 
+    const loop = (now: number) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.06);
+      lastTime = now;
       const st = stateRef.current;
       st.timeElapsed += dt;
 
-      // Calculate inflow and tilt balance
-      let inflow = 0;
-      let angleDelta = 0;
+      // 1. Calculate Water Inflow
+      let inflowRate = 0;
+      if (st.bowValve) inflowRate += 2.4;
+      if (st.sternValve) inflowRate += 2.4;
+      if (st.portPump) inflowRate -= 0.5;
+      if (st.starboardPump) inflowRate -= 0.5;
 
-      // Random tidal fluctuation
-      const tidalSurge = Math.sin(now / 1400) * 0.45;
+      // If all valves closed, no water fills!
+      st.waterLevel = Math.max(0, Math.min(100, st.waterLevel + inflowRate * dt * 2.2));
+      const roundedLevel = Math.round(st.waterLevel);
+      setWaterLevel(roundedLevel);
 
-      if (st.bowValve) {
-        inflow += 2.2;
-        angleDelta -= 0.65; // bow heavier (front goes down)
-      }
-      if (st.sternValve) {
-        inflow += 2.2;
-        angleDelta += 0.65; // stern heavier
-      }
-      if (st.portPump) {
-        angleDelta += 0.9;
-        inflow -= 0.6;
-      }
-      if (st.starboardPump) {
-        angleDelta -= 0.9;
-        inflow -= 0.6;
-      }
-
-      // Physics damping & water level integration
-      st.waterLevel = Math.min(100, Math.max(0, st.waterLevel + inflow * dt * 2.8));
-      st.angle += (angleDelta + tidalSurge) * dt * 2.2;
-      st.angle *= 0.985; // natural stabilization resistance
-
-      setWaterLevel(Math.round(st.waterLevel));
-      setShipAngle(parseFloat(st.angle.toFixed(1)));
-
-      // Score accumulation based on balance
-      if (Math.abs(st.angle) < 1.5) {
-        st.score += Math.round(dt * 150);
-      } else if (Math.abs(st.angle) < 3.0) {
-        st.score += Math.round(dt * 80);
-      }
-
-      setScore(st.score);
-
-      // Warning check
-      if (Math.abs(st.angle) >= 4.2) {
-        setWarningMsg("경고: 선체 기울기 한계치 임박! 밸브 균형을 조정하세요!");
+      // Phase calculation
+      let currentPhase: 1 | 2 | 3 = 1;
+      if (st.waterLevel < 42) {
+        currentPhase = 1; // 1단계: 선저 침수
+      } else if (st.waterLevel < 78) {
+        currentPhase = 2; // 2단계: 기주 분리 임계구간 (선박 부유 시작 - 최대 롤링 불안정성)
+        if (!st.liftOffAnnounced) {
+          st.liftOffAnnounced = true;
+          gameAudio.playHydraulicWhoosh();
+        }
       } else {
+        currentPhase = 3; // 3단계: 도크 게이트 개방 및 수위 동기화
+      }
+      setPhase(currentPhase);
+
+      // 2. Realistic Ship List & Trim Dynamics
+      // When seated on keel blocks (water < 40%), blocks provide ground support;
+      // When lifting off (42%~78%), metacentric height GM is delicate, requiring active ballast regulation!
+      let tiltTorque = 0;
+
+      // Valve flow torque (uneven inflow pushes vessel)
+      if (st.bowValve && !st.sternValve) tiltTorque -= 1.6;
+      if (st.sternValve && !st.bowValve) tiltTorque += 1.6;
+
+      // Ballast pumps torque (corrective active counter-measure)
+      if (st.portPump) tiltTorque += 2.2;      // Right roll correction
+      if (st.starboardPump) tiltTorque -= 2.2; // Left roll correction
+
+      // Environmental destabilizing surge during lift-off phase
+      if (currentPhase === 2) {
+        // High instability during keel block lift-off
+        const instabilityFactor = Math.sin(now * 0.0028) * 1.8 + Math.cos(now * 0.0017) * 0.9;
+        tiltTorque += instabilityFactor;
+      } else if (currentPhase === 3) {
+        // Outer tidal surge
+        tiltTorque += Math.sin(now * 0.003) * 1.1;
+      }
+
+      // If ship is on keel blocks, friction limits angle
+      const blockConstraint = st.waterLevel < 35 ? 0.4 : 1.0;
+      st.angularVelocity += tiltTorque * blockConstraint * dt * 2.4;
+      st.angularVelocity *= Math.pow(0.92, dt * 60); // water roll damping
+
+      st.angle += st.angularVelocity * dt;
+      const displayAngle = +(st.angle.toFixed(1));
+      setShipAngle(displayAngle);
+
+      // Score accumulation based on balance maintenance
+      if (inflowRate > 0) {
+        if (Math.abs(st.angle) < 1.2) {
+          st.score += Math.round(dt * 180);
+        } else if (Math.abs(st.angle) < 2.5) {
+          st.score += Math.round(dt * 90);
+        }
+        setScore(st.score);
+      }
+
+      // Warning toast
+      if (Math.abs(st.angle) >= 3.6) {
+        setWarningMsg("경고: 선체 횡경사(List) 위험! 밸러스트 펌프로 즉각 수평을 맞추세요!");
+      } else if (currentPhase === 2 && !warningMsg) {
+        setWarningMsg("임계: 기주 분리(Float-off) 진행 중! 반목 전도 주의!");
+      } else if (Math.abs(st.angle) < 2.5 && currentPhase !== 2) {
         setWarningMsg("");
       }
 
-      // Tilt failure condition
-      if (Math.abs(st.angle) >= 6.5) {
+      // 3. Failure Condition: Keel Block Dislocation / Hull Wall Rupture
+      if (Math.abs(st.angle) >= 5.5) {
         gameAudio.playBomb();
+        gameAudio.playDrop();
         setGameOver(true);
         setIsPlaying(false);
         onFinish(st.score);
         return;
       }
 
-      // Success condition: Dock water level reached 100%
+      // 4. Success Condition: Dock 100% Water Level & Balanced!
       if (st.waterLevel >= 100) {
-        gameAudio.playShipHorn();
-        gameAudio.playVictory();
-        setSuccess(true);
-        setIsPlaying(false);
-        const finalScore = st.score + 2500;
-        setScore(finalScore);
-        onFinish(finalScore);
-
-        // Populate celebratory confetti
-        for (let c = 0; c < 80; c++) {
-          st.confetti.push({
-            x: w / 2 + (Math.random() - 0.5) * 120,
-            y: h / 2,
-            vx: (Math.random() - 0.5) * 400,
-            vy: -150 - Math.random() * 300,
-            color: ["#ffd700", "#00e5ff", "#ff4081", "#76ff03", "#ffffff"][Math.floor(Math.random() * 5)],
-            size: 4 + Math.random() * 5,
+        if (Math.abs(st.angle) <= 2.2) {
+          gameAudio.playShipHorn();
+          gameAudio.playVictory();
+          setSuccess(true);
+          setIsPlaying(false);
+          const finalScore = st.score + 3500;
+          setScore(finalScore);
+          onFinish(finalScore);
+          confetti({
+            particleCount: 90,
+            spread: 80,
+            origin: { y: 0.6 },
+            colors: ["#00A352", "#007AFF", "#38BDF8", "#F5A623", "#FFFFFF"],
           });
+          return;
+        } else {
+          // Unbalanced floating at 100%
+          gameAudio.playDrop();
+          setGameOver(true);
+          setIsPlaying(false);
+          onFinish(st.score);
+          return;
         }
-        return;
       }
 
-      // Draw Graphics
+      // Particle spray from open valves
+      if (st.bowValve && Math.random() < 0.4) {
+        st.waterParticles.push({
+          x: w * 0.18 + (Math.random() - 0.5) * 16,
+          y: h * 0.72,
+          vx: Math.random() * 40 + 20,
+          vy: -Math.random() * 30 - 10,
+          life: 0,
+          color: "rgba(186, 230, 253, 0.8)",
+        });
+      }
+      if (st.sternValve && Math.random() < 0.4) {
+        st.waterParticles.push({
+          x: w * 0.82 + (Math.random() - 0.5) * 16,
+          y: h * 0.72,
+          vx: -Math.random() * 40 - 20,
+          vy: -Math.random() * 30 - 10,
+          life: 0,
+          color: "rgba(186, 230, 253, 0.8)",
+        });
+      }
+
+      // Update particles
+      for (let i = st.waterParticles.length - 1; i >= 0; i--) {
+        const p = st.waterParticles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 60 * dt; // gravity
+        p.life += dt;
+        if (p.life > 0.6) {
+          st.waterParticles.splice(i, 1);
+        }
+      }
+
+      // ---------------- RENDER DRYDOCK GRAPHICS ----------------
       ctx.clearRect(0, 0, w, h);
 
-      // 1. Sky & Dry dock walls
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-      skyGrad.addColorStop(0, "#0b1528");
-      skyGrad.addColorStop(0.6, "#182944");
-      skyGrad.addColorStop(1, "#253b5c");
-      ctx.fillStyle = skyGrad;
-      ctx.fillRect(0, 0, w, h);
+      // 1. Drydock Concrete Caisson Walls (도크 측벽)
+      const dockLeft = 50;
+      const dockRight = w - 50;
+      const dockBottom = h - 55;
+      const dockTop = 70;
+      const dockDepth = dockBottom - dockTop;
 
-      // Dock side concrete walls
+      // Drydock pit background (dark concrete chamber)
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(dockLeft, dockTop, dockRight - dockLeft, dockDepth);
+
+      // Concrete Wall Texture & Depth Scales
       ctx.fillStyle = "#334155";
-      ctx.fillRect(0, 0, 36, h);
-      ctx.fillRect(w - 36, 0, 36, h);
+      ctx.fillRect(0, 0, dockLeft, h);
+      ctx.fillRect(dockRight, 0, w - dockRight, h);
+      ctx.fillRect(0, dockBottom, w, h - dockBottom);
 
-      // Dock depth markings
+      // Yellow/Black Safety Coaming along Dock Rim
+      for (let y = dockTop; y < dockBottom; y += 24) {
+        ctx.fillStyle = (y / 24) % 2 === 0 ? "#facc15" : "#0f172a";
+        ctx.fillRect(dockLeft - 8, y, 8, 24);
+        ctx.fillRect(dockRight, y, 8, 24);
+      }
+
+      // Depth graduation tick marks (수심계 0m ~ 14m)
       ctx.fillStyle = "#94a3b8";
       ctx.font = "bold 9px monospace";
-      for (let yMark = 60; yMark < h - 40; yMark += 35) {
-        const depthM = ((h - 40 - yMark) / (h - 100) * 14).toFixed(1);
-        ctx.fillText(`${depthM}m`, 8, yMark);
-        ctx.fillRect(28, yMark - 2, 8, 2);
-        ctx.fillRect(w - 36, yMark - 2, 8, 2);
+      for (let m = 0; m <= 14; m += 2) {
+        const my = dockBottom - (m / 14) * dockDepth;
+        ctx.fillRect(dockLeft - 18, my, 8, 1.5);
+        ctx.fillText(`${m}m`, dockLeft - 36, my + 3);
+        ctx.fillRect(dockRight + 10, my, 8, 1.5);
+        ctx.fillText(`${m}m`, dockRight + 22, my + 3);
       }
 
-      // Dock floor & Keel blocks (침목/반목)
-      ctx.fillStyle = "#1e293b";
-      ctx.fillRect(0, h - 35, w, 35);
-      // Keel blocks along floor
-      for (let bx = 60; bx < w - 60; bx += 32) {
+      // Wooden Keel Blocks (용골 반목 배열) on dock bottom
+      const blockW = 16;
+      const blockH = 14;
+      const keelBlockY = dockBottom - blockH;
+      for (let bx = dockLeft + 35; bx < dockRight - 35; bx += 28) {
+        // Concrete pedestal
         ctx.fillStyle = "#475569";
-        ctx.fillRect(bx, h - 48, 20, 13);
-        ctx.fillStyle = "#64748b";
-        ctx.fillRect(bx + 2, h - 52, 16, 4);
+        ctx.fillRect(bx, keelBlockY + 6, blockW, 8);
+        // Hardwood oak cap
+        ctx.fillStyle = "#b45309";
+        ctx.fillRect(bx, keelBlockY, blockW, 6);
       }
 
-      // 2. Rising Sea Water
-      const waterTopY = (h - 48) - (st.waterLevel / 100) * (h - 120);
+      // 2. Rising Water Surface & Body in Drydock
+      const currentWaterY = dockBottom - (st.waterLevel / 100) * (dockDepth * 0.88);
 
-      ctx.save();
+      if (st.waterLevel > 0) {
+        const waterGrad = ctx.createLinearGradient(0, currentWaterY, 0, dockBottom);
+        waterGrad.addColorStop(0, "rgba(56, 189, 248, 0.75)");
+        waterGrad.addColorStop(0.3, "rgba(2, 132, 199, 0.85)");
+        waterGrad.addColorStop(1, "rgba(12, 74, 110, 0.95)");
+
+        ctx.fillStyle = waterGrad;
+        ctx.beginPath();
+        ctx.moveTo(dockLeft, currentWaterY);
+        // Water wave ripples
+        const waveStep = (dockRight - dockLeft) / 20;
+        for (let i = 0; i <= 20; i++) {
+          const wx = dockLeft + i * waveStep;
+          const wy = currentWaterY + Math.sin(now * 0.005 + i * 0.8) * 3;
+          ctx.lineTo(wx, wy);
+        }
+        ctx.lineTo(dockRight, dockBottom);
+        ctx.lineTo(dockLeft, dockBottom);
+        ctx.closePath();
+        ctx.fill();
+
+        // White crest line
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // 3. Draw Water Sluice Ports (주수구)
+      // Bow Sluice
+      ctx.fillStyle = st.bowValve ? "#0284c7" : "#0f172a";
       ctx.beginPath();
-      ctx.moveTo(36, h);
-      ctx.lineTo(36, waterTopY);
-      // Sinusoidal waves on water surface
-      for (let x = 36; x <= w - 36; x += 8) {
-        const wy = waterTopY + Math.sin(x * 0.04 + waveOffset) * 3;
-        ctx.lineTo(x, wy);
-      }
-      ctx.lineTo(w - 36, h);
-      ctx.closePath();
-
-      const waterGrad = ctx.createLinearGradient(0, waterTopY, 0, h);
-      waterGrad.addColorStop(0, "rgba(0, 180, 255, 0.65)");
-      waterGrad.addColorStop(0.3, "rgba(0, 110, 210, 0.78)");
-      waterGrad.addColorStop(1, "rgba(0, 40, 100, 0.92)");
-      ctx.fillStyle = waterGrad;
+      ctx.arc(dockLeft + 15, dockBottom - 25, 12, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = st.bowValve ? "#38bdf8" : "#475569";
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-      // Water spray from active valves
-      if (st.bowValve) {
-        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-        ctx.fillRect(40, waterTopY - 10, 12, 10);
-      }
-      if (st.sternValve) {
-        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-        ctx.fillRect(w - 52, waterTopY - 10, 12, 10);
-      }
-      ctx.restore();
+      // Stern Sluice
+      ctx.fillStyle = st.sternValve ? "#0284c7" : "#0f172a";
+      ctx.beginPath();
+      ctx.arc(dockRight - 15, dockBottom - 25, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = st.sternValve ? "#38bdf8" : "#475569";
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-      // 3. Mega Container Ship / Tanker Hull
-      // Floats when water exceeds keel height
-      const floatRatio = Math.max(0, Math.min(1, (st.waterLevel - 15) / 85));
-      const shipBaseY = (h - 52) - floatRatio * (h - 145);
+      // Water spray particles
+      for (const p of st.waterParticles) {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 4. Draw Massive Container Ship Hull
+      // Hull elevation: rests on blocks at keelBlockY until waterLevel reaches 42% (float-off!)
+      const shipWidth = w * 0.65;
+      const shipHeight = 85;
+      const baseHullY = keelBlockY - shipHeight;
+
+      // When water reaches > 40%, ship floats up with water level
+      let floatOffset = 0;
+      if (st.waterLevel > 40) {
+        floatOffset = ((st.waterLevel - 40) / 60) * (dockDepth * 0.42);
+      }
+      const shipY = baseHullY - floatOffset;
 
       ctx.save();
-      // Translate to ship center of gravity
-      const shipCenterX = w / 2;
-      ctx.translate(shipCenterX, shipBaseY);
+      ctx.translate(w / 2, shipY + shipHeight / 2);
       ctx.rotate((st.angle * Math.PI) / 180);
 
-      // Ship Hull (HD 현대 블루 & 레드 앤티파울링)
-      const shipWidth = w * 0.72;
-      const shipHeight = 52;
+      // Ship Hull Shadow
+      ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+      ctx.fillRect(-shipWidth / 2 + 5, -shipHeight / 2 + 5, shipWidth, shipHeight);
 
-      // Bottom red anti-fouling hull
-      ctx.fillStyle = "#b91c1c";
-      ctx.beginPath();
-      ctx.moveTo(-shipWidth / 2, 0);
-      ctx.lineTo(shipWidth / 2, 0);
-      ctx.lineTo(shipWidth / 2 - 25, shipHeight / 2);
-      ctx.lineTo(-shipWidth / 2 + 35, shipHeight / 2);
-      ctx.closePath();
-      ctx.fill();
-
-      // Bulbous bow (구상선수)
-      ctx.beginPath();
-      ctx.arc(-shipWidth / 2 + 10, shipHeight / 4, 12, 0, Math.PI * 2);
+      // Bottom Anti-fouling Coating (Red)
       ctx.fillStyle = "#991b1b";
-      ctx.fill();
-
-      // Upper black/navy top-sides
-      ctx.fillStyle = "#0f172a";
       ctx.beginPath();
       ctx.moveTo(-shipWidth / 2, 0);
       ctx.lineTo(shipWidth / 2, 0);
-      ctx.lineTo(shipWidth / 2 + 10, -shipHeight / 2);
-      ctx.lineTo(-shipWidth / 2 - 10, -shipHeight / 2);
+      ctx.lineTo(shipWidth / 2 - 18, shipHeight / 2);
+      ctx.lineTo(-shipWidth / 2 + 18, shipHeight / 2);
       ctx.closePath();
       ctx.fill();
 
-      // HD HYUNDAI SAMHO Logo text on hull
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 9px sans-serif";
-      ctx.fillText("HD HYUNDAI SAMHO", -45, -6);
-
-      // Deck Containers / Deckhouse
-      // Deck superstructure (Bridge)
-      ctx.fillStyle = "#f8fafc";
-      ctx.fillRect(shipWidth / 3 - 35, -shipHeight / 2 - 28, 28, 28);
-      ctx.fillStyle = "#38bdf8";
-      ctx.fillRect(shipWidth / 3 - 33, -shipHeight / 2 - 22, 24, 6); // Bridge glass
-
-      // Radar mast
-      ctx.strokeStyle = "#94a3b8";
-      ctx.lineWidth = 1.5;
+      // Topside Outer Hull (HD Navy Blue)
+      ctx.fillStyle = "#002C6C";
       ctx.beginPath();
-      ctx.moveTo(shipWidth / 3 - 21, -shipHeight / 2 - 28);
-      ctx.lineTo(shipWidth / 3 - 21, -shipHeight / 2 - 40);
-      ctx.stroke();
+      ctx.moveTo(-shipWidth / 2 - 6, -shipHeight / 2);
+      ctx.lineTo(shipWidth / 2 + 6, -shipHeight / 2);
+      ctx.lineTo(shipWidth / 2, 0);
+      ctx.lineTo(-shipWidth / 2, 0);
+      ctx.closePath();
+      ctx.fill();
 
-      // Colored stacked containers
-      const containerColors = ["#0284c7", "#ea580c", "#16a34a", "#eab308"];
-      for (let ci = 0; ci < 5; ci++) {
-        const cx = -shipWidth / 2 + 25 + ci * 36;
-        ctx.fillStyle = containerColors[ci % containerColors.length];
-        ctx.fillRect(cx, -shipHeight / 2 - 16, 32, 16);
-        ctx.strokeStyle = "#00000044";
-        ctx.strokeRect(cx, -shipHeight / 2 - 16, 32, 16);
+      // Bulbous Bow at Fore (Right)
+      ctx.fillStyle = "#7f1d1d";
+      ctx.beginPath();
+      ctx.arc(shipWidth / 2 - 10, shipHeight / 2 - 6, 12, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Container Stacks on Upper Deck
+      const boxW = 18;
+      const boxH = 14;
+      const colors = ["#0284c7", "#f59e0b", "#10b981", "#ef4444", "#6366f1"];
+      for (let cx = -shipWidth / 2 + 25; cx < shipWidth / 2 - 50; cx += boxW + 4) {
+        for (let cy = 0; cy < 2; cy++) {
+          ctx.fillStyle = colors[Math.abs(Math.floor(cx * 7 + cy)) % colors.length];
+          ctx.fillRect(cx, -shipHeight / 2 - (cy + 1) * (boxH + 1), boxW, boxH);
+          ctx.strokeStyle = "rgba(0,0,0,0.3)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(cx, -shipHeight / 2 - (cy + 1) * (boxH + 1), boxW, boxH);
+        }
       }
+
+      // Deck Bridge Tower at Aft (Left)
+      ctx.fillStyle = "#f8fafc";
+      ctx.fillRect(-shipWidth / 2 + 20, -shipHeight / 2 - 42, 28, 42);
+      ctx.fillStyle = "#0284c7"; // Bridge windows
+      ctx.fillRect(-shipWidth / 2 + 24, -shipHeight / 2 - 38, 20, 8);
+      // Modern Funnel
+      ctx.fillStyle = "#002C6C";
+      ctx.fillRect(-shipWidth / 2 + 52, -shipHeight / 2 - 32, 12, 32);
+      ctx.fillStyle = "#00A352";
+      ctx.fillRect(-shipWidth / 2 + 55, -shipHeight / 2 - 28, 6, 10);
+
+      // Ship Name on Topsides
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 10px sans-serif";
+      ctx.fillText("HD HYUNDAI SAMHO 01", -50, -10);
+
+      // Inclinometer / Clinometer on Main Deck
+      ctx.strokeStyle = Math.abs(st.angle) > 3.0 ? "#ef4444" : "#10b981";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, -shipHeight / 2 - 12, 12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, -shipHeight / 2 - 12);
+      ctx.lineTo(0, -shipHeight / 2 - 22);
+      ctx.stroke();
 
       ctx.restore();
 
-      // 4. Incline Level Gauge (Crosshair in top center)
-      const gaugeX = w / 2;
-      const gaugeY = 38;
-      ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
-      ctx.beginPath();
-      ctx.arc(gaugeX, gaugeY, 26, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = Math.abs(st.angle) > 4 ? "#ef4444" : "#10b981";
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
+      // 5. Giant Gantry Crane Legs along Dock
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillRect(dockLeft - 18, 10, 14, 50);
+      ctx.fillRect(dockRight + 4, 10, 14, 50);
+      ctx.strokeStyle = "#b45309";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(dockLeft - 18, 10, 14, 50);
+      ctx.strokeRect(dockRight + 4, 10, 14, 50);
 
-      // Bubble indicator
-      const bubbleX = gaugeX + (st.angle / 6) * 18;
-      ctx.fillStyle = Math.abs(st.angle) > 4 ? "#f87171" : "#34d399";
-      ctx.beginPath();
-      ctx.arc(bubbleX, gaugeY, 6, 0, Math.PI * 2);
-      ctx.fill();
+      // Dock Head Banner
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 12px sans-serif";
+      ctx.fillText("HD현대삼호 제1드라이도크 진수식 (FLOTATION)", dockLeft + 15, dockTop - 18);
 
       animId = requestAnimationFrame(loop);
     };
@@ -375,32 +519,49 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
   }, [isPlaying, gameOver, success]);
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none">
-      {/* Header Bar */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-5 py-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xl mb-4">
+    <div className="w-full max-w-5xl mx-auto flex flex-col items-center select-none font-sans">
+      {/* Telemetry Header */}
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl mb-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
             <Waves className="w-5 h-5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-lg text-white">드라이도크 진수식 : 수위 & 밸런스</h3>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${Math.abs(shipAngle) > 4 ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"}`}>
-                기울기: {shipAngle > 0 ? `+${shipAngle}° 선미` : `${shipAngle}° 선수`}
+              <h3 className="font-black text-base sm:text-lg text-white">드라이도크 안전 진수식 (Float-off)</h3>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                phase === 1
+                  ? "bg-sky-500/20 text-sky-400 border-sky-500/30"
+                  : phase === 2
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse"
+                  : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+              }`}>
+                {phase === 1 ? "1단계: 선저 주수" : phase === 2 ? "2단계: 기주 분리 임계점" : "3단계: 도크 게이트 개방"}
               </span>
             </div>
             <p className="text-xs text-slate-400 font-medium">
-              선박이 수평(±2°)을 유지하도록 주수 밸브와 배수 펌프를 조절하여 100% 진수시키세요!
+              선수/선미 주수문과 좌/우현 밸러스트 펌프를 조작하여 횡경사 ±2.0° 이내로 부유시키세요.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <span className="text-xs text-slate-400 block font-medium">진수 점수</span>
-            <span className="text-2xl font-black text-cyan-400 tracking-tight">
-              {score.toLocaleString()}
+        {/* Live Gauges */}
+        <div className="flex items-center gap-4 text-xs font-semibold">
+          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
+            <span className="text-slate-400 block text-[10px]">도크 주수율</span>
+            <span className="text-base font-black text-cyan-400">{waterLevel}%</span>
+          </div>
+
+          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
+            <span className="text-slate-400 block text-[10px]">선체 횡경사 (List)</span>
+            <span className={`text-base font-black ${Math.abs(shipAngle) > 3.0 ? "text-rose-400 animate-pulse" : Math.abs(shipAngle) > 1.8 ? "text-amber-400" : "text-emerald-400"}`}>
+              {shipAngle > 0 ? `+${shipAngle}° (우현)` : shipAngle < 0 ? `${shipAngle}° (좌현)` : "0.0° (수평)"}
             </span>
+          </div>
+
+          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
+            <span className="text-slate-400 block text-[10px]">진수 스코어</span>
+            <span className="text-base font-black text-sky-400">{score.toLocaleString()}점</span>
           </div>
 
           <button
@@ -413,29 +574,15 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
         </div>
       </div>
 
-      {/* Main Screen */}
-      <div className="w-full relative rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 aspect-[16/9] min-h-[380px] flex items-center justify-center">
+      {/* Main Viewport */}
+      <div className="w-full relative rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 aspect-[16/9] min-h-[400px] flex items-center justify-center">
         <canvas ref={canvasRef} className="w-full h-full" />
 
         {/* Warning Toast */}
         {warningMsg && isPlaying && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-rose-950/90 border border-rose-500 text-rose-200 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg animate-bounce">
-            <AlertTriangle className="w-4 h-4 text-rose-400" />
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-rose-950/90 border border-rose-500 text-rose-200 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg animate-bounce z-10">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
             {warningMsg}
-          </div>
-        )}
-
-        {/* Water Level & Balance HUD */}
-        {isPlaying && (
-          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none">
-            <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/60 px-4 py-2 rounded-xl text-white">
-              <span className="text-[11px] text-slate-400 block">도크 주수율</span>
-              <span className="text-xl font-black text-cyan-400">{waterLevel}%</span>
-            </div>
-            <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/60 px-4 py-2 rounded-xl text-white text-right">
-              <span className="text-[11px] text-slate-400 block">허용 한계 각도</span>
-              <span className="text-xl font-black text-amber-400">±6.0° MAX</span>
-            </div>
           </div>
         )}
 
@@ -446,9 +593,11 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
               <Waves className="w-8 h-8" />
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">드라이도크 안전 진수식</h2>
-            <p className="text-slate-300 text-sm max-w-md mb-6 leading-relaxed">
-              30만 톤급 초대형 선박의 안전한 부유(Float-off)를 위해<br />
-              선수/선미 밸브와 배수 펌프를 유기적으로 가동하여 선체 균형을 맞추세요!
+            <p className="text-slate-300 text-sm max-w-lg mb-6 leading-relaxed">
+              가만히 있으면 주수가 진행되지 않습니다!<br />
+              <strong>선수(1번) / 선미(2번) 밸브</strong>를 열어 도크에 해수를 유입시키고,<br />
+              <strong>40% 기주 분리(Float-off)</strong> 순간 선체가 기울어지면<br />
+              <strong>좌현(3번) / 우현(4번) 밸러스트 펌프</strong>를 즉각 가동하여 <strong>기울기 ±5.0° 이내</strong>로 수평을 유지하세요!
             </p>
             <button
               onClick={startGame}
@@ -466,9 +615,9 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
             <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-3 text-rose-400">
               <AlertTriangle className="w-9 h-9" />
             </div>
-            <h3 className="text-2xl font-black text-white mb-1">선체 경사 한계 초과 (경동 발생)</h3>
+            <h3 className="text-2xl font-black text-white mb-1">선체 경사 한계 초과 (반목 전도 사고)</h3>
             <p className="text-slate-300 text-sm mb-4">
-              선체 기울기가 6.5°를 초과하여 긴급 주수 중단 조치가 취해졌습니다.
+              기울기가 5.5°를 초과하여 용골 반목에서 이탈 및 도크 벽 충돌 위험으로 긴급 중단되었습니다.
             </p>
             <div className="bg-slate-900 border border-slate-800 px-6 py-3 rounded-2xl text-center mb-6">
               <span className="text-xs text-slate-400 block mb-0.5">획득 점수</span>
@@ -484,7 +633,7 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
           </div>
         )}
 
-        {/* Success / Launching Ceremony Overlay */}
+        {/* Success Overlay */}
         {success && (
           <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-3 text-amber-400">
@@ -492,10 +641,10 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
             </div>
             <span className="text-xs font-bold text-amber-400 tracking-widest uppercase mb-1">SAFE LAUNCHING SUCCESS</span>
             <h3 className="text-2xl sm:text-3xl font-black text-white mb-2">
-              무사고 명품 진수식 성공!
+              무사고 명품 진수식 완료!
             </h3>
             <p className="text-slate-300 text-sm mb-4 max-w-md">
-              완벽한 밸런스로 선박이 도크 수면에 안착하였습니다. 영암호를 거쳐 대양으로 힘차게 출항합니다!
+              완벽한 수평 제어로 30만 톤급 선박이 도크 해수면에 완벽하게 부유하여 출항 준비를 마쳤습니다!
             </p>
             <div className="bg-slate-900 border border-slate-800 px-6 py-4 rounded-2xl text-center mb-6 min-w-[200px]">
               <span className="text-xs text-slate-400 block mb-1">최종 공인 점수</span>
@@ -511,58 +660,78 @@ export default function DockWaterGame({ onFinish }: DockWaterGameProps) {
         )}
       </div>
 
-      {/* Control Panel (Valves & Pumps) */}
-      <div className="w-full mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      {/* Control Panel: 4 Industrial Ballast Valves & Pumps */}
+      <div className="w-full mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <button
           onClick={toggleBow}
           disabled={!isPlaying}
-          className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${
+          className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
             bowValve
-              ? "bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-lg shadow-cyan-500/20 font-black"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 font-medium"
+              ? "bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-lg shadow-cyan-500/20 font-black scale-[1.02]"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-semibold"
           }`}
         >
-          <span className="text-xs">선수 주수 밸브</span>
-          <span className="text-[11px] font-bold mt-1">{bowValve ? "열림 (주수 중)" : "닫힘"}</span>
+          <span className="text-xs flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-cyan-400" />
+            선수 주수문 [1]
+          </span>
+          <span className="text-[11px] font-bold mt-1">
+            {bowValve ? "열림 (해수 유입 중)" : "닫힘 (클릭하여 개방)"}
+          </span>
         </button>
 
         <button
           onClick={toggleStern}
           disabled={!isPlaying}
-          className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${
+          className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
             sternValve
-              ? "bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-lg shadow-cyan-500/20 font-black"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 font-medium"
+              ? "bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-lg shadow-cyan-500/20 font-black scale-[1.02]"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-semibold"
           }`}
         >
-          <span className="text-xs">선미 주수 밸브</span>
-          <span className="text-[11px] font-bold mt-1">{sternValve ? "열림 (주수 중)" : "닫힘"}</span>
+          <span className="text-xs flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-cyan-400" />
+            선미 주수문 [2]
+          </span>
+          <span className="text-[11px] font-bold mt-1">
+            {sternValve ? "열림 (해수 유입 중)" : "닫힘 (클릭하여 개방)"}
+          </span>
         </button>
 
         <button
           onClick={togglePort}
           disabled={!isPlaying}
-          className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${
+          className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
             portPump
-              ? "bg-amber-500/20 border-amber-500 text-amber-300 shadow-lg shadow-amber-500/20 font-black"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 font-medium"
+              ? "bg-amber-500/25 border-amber-400 text-amber-200 shadow-lg shadow-amber-500/20 font-black scale-[1.02]"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-semibold"
           }`}
         >
-          <span className="text-xs">좌현 밸러스트 배수</span>
-          <span className="text-[11px] font-bold mt-1">{portPump ? "가동 (우회전)" : "정지"}</span>
+          <span className="text-xs flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            좌현 밸러스트 [3]
+          </span>
+          <span className="text-[11px] font-bold mt-1">
+            {portPump ? "배수 작동 중 (우현으로 회복)" : "정지 (클릭하여 배수)"}
+          </span>
         </button>
 
         <button
           onClick={toggleStarboard}
           disabled={!isPlaying}
-          className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${
+          className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
             starboardPump
-              ? "bg-amber-500/20 border-amber-500 text-amber-300 shadow-lg shadow-amber-500/20 font-black"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 font-medium"
+              ? "bg-amber-500/25 border-amber-400 text-amber-200 shadow-lg shadow-amber-500/20 font-black scale-[1.02]"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white font-semibold"
           }`}
         >
-          <span className="text-xs">우현 밸러스트 배수</span>
-          <span className="text-[11px] font-bold mt-1">{starboardPump ? "가동 (좌회전)" : "정지"}</span>
+          <span className="text-xs flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            우현 밸러스트 [4]
+          </span>
+          <span className="text-[11px] font-bold mt-1">
+            {starboardPump ? "배수 작동 중 (좌현으로 회복)" : "정지 (클릭하여 배수)"}
+          </span>
         </button>
       </div>
     </div>

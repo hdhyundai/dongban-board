@@ -355,11 +355,11 @@ export default function LNGTankInspectGame({ onFinish }: LNGTankInspectGameProps
           ctx.restore();
         }
 
-        // Check if scanner is on top of this defect and scanning
-        if (!d.cleared && dist < scanRadius) {
+        // Check if scanner is on top of this defect and actively scanning
+        if (!d.cleared && dist < scanRadius && s.isScanning) {
           activeDefectNearby = true;
-          // Progress increases when in range
-          const scanRate = (s.isScanning ? 1.8 : 0.8) * dt;
+          // Progress only increases during active laser scanning
+          const scanRate = 1.6 * dt;
           d.progress += scanRate;
 
           // Emit scan particles

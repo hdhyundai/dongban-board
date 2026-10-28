@@ -40,8 +40,10 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
   const [gameState, setGameState] = useState<"READY" | "PLAYING" | "GAMEOVER">("READY");
   const [score, setScore] = useState(0);
   const [distance, setDistance] = useState(0);
+  const [battery, setBattery] = useState(100);
   const [hasShield, setHasShield] = useState(false);
   const [isTurbo, setIsTurbo] = useState(false);
+  const [gameOverReason, setGameOverReason] = useState("");
   const [isMuted, setIsMuted] = useState(gameAudio.getMuted());
 
   const stateRef = useRef({
@@ -52,6 +54,7 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
     playerHeight: 74,
     speed: 5,
     distance: 0,
+    battery: 100,
     score: 0,
     hasShield: false,
     turboTimer: 0,
@@ -80,6 +83,7 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
     s.speed = 5;
     s.distance = 0;
     s.score = 0;
+    s.battery = 100;
     s.hasShield = false;
     s.turboTimer = 0;
     s.obstacles = [];
@@ -90,8 +94,10 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
 
     setScore(0);
     setDistance(0);
+    setBattery(100);
     setHasShield(false);
     setIsTurbo(false);
+    setGameOverReason("");
     setGameState("PLAYING");
     gameAudio.playClick();
   };
@@ -156,6 +162,18 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
         // Player movement smoothing
         s.playerX += (s.targetX - s.playerX) * 0.22;
 
+        // Drain battery over time (prevents idling)
+        s.battery = Math.max(0, s.battery - 0.05);
+        setBattery(Math.round(s.battery));
+
+        if (s.battery <= 0) {
+          gameAudio.playDrop();
+          setGameOverReason("친환경 배터리 방전으로 추진력 상실!");
+          setGameState("GAMEOVER");
+          onFinish(s.score);
+          return;
+        }
+
         // Turbo handling
         const currentSpeed = s.turboTimer > 0 ? s.speed * 1.8 : s.speed;
         if (s.turboTimer > 0) {
@@ -175,7 +193,10 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
         const now = Date.now();
         if (now - s.lastSpawn > Math.max(450, 1100 - s.speed * 60)) {
           s.lastSpawn = now;
-          const laneX = Math.random() * (s.width - 100) + 50;
+          // Spawn lane (occasionally target near player position to prevent stationary play)
+          const laneX = Math.random() < 0.4
+            ? Math.max(40, Math.min(s.width - 40, s.playerX + (Math.random() - 0.5) * 60))
+            : Math.random() * (s.width - 100) + 50;
 
           if (Math.random() < 0.65) {
             // Spawn obstacle
@@ -409,6 +430,8 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
           if (picked) {
             if (item.type === "battery") {
               s.score += 50;
+              s.battery = Math.min(100, s.battery + 28);
+              setBattery(Math.round(s.battery));
               gameAudio.playPickup();
             } else if (item.type === "anchor") {
               s.score += 150;
@@ -547,6 +570,14 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
               </div>
             </div>
 
+            {/* Battery Indicator */}
+            <div className="bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-[12px] border border-white/10 text-white text-center">
+              <div className="text-[10px] font-bold text-gray-400">추진 배터리</div>
+              <div className={`text-[17px] font-black tabular-nums ${battery < 25 ? "text-rose-400 animate-pulse" : "text-emerald-400"}`}>
+                ⚡ {battery}%
+              </div>
+            </div>
+
             <div className="bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-[12px] border border-white/10 text-white text-right">
               <div className="text-[10px] font-bold text-gray-400">종합 스코어</div>
               <div className="text-[20px] font-black text-[#34C759] tabular-nums">
@@ -564,7 +595,8 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
             </div>
             <h2 className="text-[24px] font-black tracking-tight mb-2">영암만 쾌속 항해</h2>
             <p className="text-gray-300 text-[14px] max-w-sm mb-6 leading-relaxed">
-              암초와 부표를 피하고 <span className="text-emerald-400 font-bold">⚡친환경 배터리</span>와 <span className="text-amber-400 font-bold">⚓황금 닻</span>을 수집하세요! 마우스 이동 또는 좌우 방향키로 조타합니다.
+              가만히 있으면 배터리가 방전되어 표류합니다!<br />
+              암초와 부표를 피하고 <span className="text-emerald-400 font-bold">⚡친환경 배터리</span>와 <span className="text-amber-400 font-bold">⚓황금 닻</span>을 수집하세요!
             </p>
             <button
               onClick={startGame}
@@ -579,8 +611,8 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
         {/* GAME OVER OVERLAY */}
         {gameState === "GAMEOVER" && (
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white animate-in fade-in">
-            <h3 className="text-[22px] font-black mb-1">항해 종료</h3>
-            <p className="text-gray-300 text-[13px] mb-4 font-semibold">장애물에 충돌했습니다!</p>
+            <h3 className="text-[22px] font-black mb-1">시운전 항해 종료</h3>
+            <p className="text-gray-300 text-[13px] mb-4 font-semibold">{gameOverReason || "장애물에 충돌했습니다!"}</p>
 
             <div className="grid grid-cols-2 gap-3 w-full max-w-xs mb-6">
               <div className="bg-white/10 rounded-[14px] p-3 text-center border border-white/10">

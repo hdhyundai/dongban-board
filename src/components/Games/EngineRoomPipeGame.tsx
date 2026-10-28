@@ -113,6 +113,13 @@ export default function EngineRoomPipeGame({ onFinish }: EngineRoomPipeGameProps
       grid.push(row);
     }
 
+    // Guarantee that grid is NOT pre-solved at start
+    while (evaluateConnections(grid)) {
+      const randR = Math.floor(Math.random() * GRID_ROWS);
+      const randC = Math.floor(Math.random() * GRID_COLS);
+      grid[randR][randC].rotation = (grid[randR][randC].rotation + 90) % 360;
+    }
+
     return grid;
   };
 
