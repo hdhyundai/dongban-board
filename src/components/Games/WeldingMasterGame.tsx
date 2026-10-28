@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Play, RotateCcw, Volume2, VolumeX, Flame, Zap, CheckCircle2, Award, AlertTriangle, Clock } from "lucide-react";
+import { Play, RotateCcw, Volume2, VolumeX, Flame, Zap, CheckCircle2, Award, AlertTriangle } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
 
@@ -38,11 +38,10 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
   const [stageComplete, setStageComplete] = useState(false);
   const [qualityGrade, setQualityGrade] = useState<string>("S");
   const [timeLeft, setTimeLeft] = useState(30); // 30s limit per seam
-  const [heatInput, setHeatInput] = useState(18); // kJ/cm (optimal: 15~22)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isWeldingRef = useRef(false);
-  const mousePosRef = useRef({ x: 0, y: 0 });
+  const mousePosRef = useRef({ x: -100, y: -100 });
   const lastWeldedPosRef = useRef<{ x: number; y: number } | null>(null);
   const lastTimeRef = useRef<number>(0);
   const seamPathRef = useRef<PathNode[]>([]);
@@ -53,38 +52,56 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
   const stagePenaltiesRef = useRef(0);
   const timeLeftRef = useRef(30);
   const animationFrameRef = useRef<number>(0);
+  const logicalSizeRef = useRef({ width: 860, height: 420 });
 
   const toggleSound = () => {
     const muted = gameAudio.toggleMute();
     setIsMuted(muted);
   };
 
+  // Generate smooth weld seam path in CSS logical coordinates (width x height)
   const generatePath = (stageNum: number, width: number, height: number): PathNode[] => {
     const nodes: PathNode[] = [];
-    const padding = 60;
-    const startX = padding;
-    const endX = width - padding;
-    const midY = height / 2;
+    const validW = Math.max(width, 600);
+    const validH = Math.max(height, 320);
 
-    const count = 45 + stageNum * 12;
+    const paddingX = Math.max(60, validW * 0.08);
+    const startX = paddingX;
+    const endX = validW - paddingX;
+    const midY = validH / 2;
+
+    // Amplitude kept well within bounds so the seam never touches borders
+    const maxAmp = Math.min(validH * 0.22, 65);
+    const count = 55 + stageNum * 12;
+
     for (let i = 0; i <= count; i++) {
       const t = i / count;
       const x = startX + (endX - startX) * t;
       let y = midY;
 
       if (stageNum === 1) {
-        // Mild wave hull plate joint
-        y = midY + Math.sin(t * Math.PI * 3) * 35;
+        // Stage 1: Mild curved hull plate butt joint
+        y = midY + Math.sin(t * Math.PI * 2.5) * (maxAmp * 0.65);
       } else if (stageNum === 2) {
-        // Double bevel curved joint
-        y = midY + Math.sin(t * Math.PI * 6) * 50 + Math.cos(t * Math.PI * 2) * 22;
+        // Stage 2: S-curve transverse deck joint
+        y = midY + Math.sin(t * Math.PI * 4) * (maxAmp * 0.75) + Math.cos(t * Math.PI * 2) * (maxAmp * 0.25);
       } else {
-        // Bulbous bow 3D intersection curve
-        y = midY + Math.sin(t * Math.PI * 5) * 60 + Math.sin(t * Math.PI * 11) * 26;
+        // Stage 3: Complex curved bulbous bow block shell joint
+        y = midY + Math.sin(t * Math.PI * 5) * (maxAmp * 0.8) + Math.sin(t * Math.PI * 9) * (maxAmp * 0.3);
       }
-      nodes.push({ x, y });
+      nodes.push({ x: Math.round(x), y: Math.round(y) });
     }
     return nodes;
+  };
+
+  const getCanvasLogicalSize = () => {
+    if (canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      if (rect.width > 200 && rect.height > 150) {
+        return { width: rect.width, height: rect.height };
+      }
+    }
+    return logicalSizeRef.current;
   };
 
   const startStage = (stg: number) => {
@@ -99,10 +116,9 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
     timeLeftRef.current = 30;
     setTimeLeft(30);
 
-    const canvas = canvasRef.current;
-    if (canvas) {
-      seamPathRef.current = generatePath(stg, canvas.width, canvas.height);
-    }
+    const size = getCanvasLogicalSize();
+    logicalSizeRef.current = size;
+    seamPathRef.current = generatePath(stg, size.width, size.height);
   };
 
   const startGame = () => {
@@ -130,7 +146,7 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
     return () => clearInterval(timer);
   }, [isPlaying, stageComplete, gameOver, totalScore]);
 
-  // Canvas loop
+  // Main Canvas Render & Game Loop
   useEffect(() => {
     if (!isPlaying) return;
 
@@ -139,74 +155,139 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-    const w = rect.width;
-    const h = rect.height;
-
-    if (seamPathRef.current.length === 0) {
-      seamPathRef.current = generatePath(stage, w, h);
-    }
-
     let lastSparkAudioTime = 0;
 
     const render = (time: number) => {
-      const dt = lastTimeRef.current ? (time - lastTimeRef.current) / 1000 : 0.016;
+      const dt = lastTimeRef.current ? Math.min((time - lastTimeRef.current) / 1000, 0.05) : 0.016;
       lastTimeRef.current = time;
 
-      // Industrial Dark Steel Plate Background
-      ctx.fillStyle = "#1e2430";
+      // Handle HiDPI & Resize dynamically
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = rect.width > 0 ? rect.width : logicalSizeRef.current.width;
+      const h = rect.height > 0 ? rect.height : logicalSizeRef.current.height;
+
+      const bufW = Math.round(w * dpr);
+      const bufH = Math.round(h * dpr);
+      if (canvas.width !== bufW || canvas.height !== bufH) {
+        canvas.width = bufW;
+        canvas.height = bufH;
+        // If logical size changed significantly, regenerate path to match
+        if (Math.abs(logicalSizeRef.current.width - w) > 30 || Math.abs(logicalSizeRef.current.height - h) > 30) {
+          logicalSizeRef.current = { width: w, height: h };
+          seamPathRef.current = generatePath(stage, w, h);
+        }
+      }
+
+      // If seam path is not generated yet, generate now
+      if (seamPathRef.current.length === 0) {
+        logicalSizeRef.current = { width: w, height: h };
+        seamPathRef.current = generatePath(stage, w, h);
+      }
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      // 1. Industrial Shipbuilding Steel Plate Background (EH36 Grade)
+      ctx.fillStyle = "#151b26";
       ctx.fillRect(0, 0, w, h);
 
-      // Steel plate mill grain & bevel groove
-      ctx.strokeStyle = "#273142";
+      // Mill scale & rolling mill texture grain
+      ctx.strokeStyle = "rgba(43, 56, 76, 0.45)";
       ctx.lineWidth = 1;
-      for (let gy = 0; gy < h; gy += 25) {
+      for (let gy = 0; gy < h; gy += 24) {
         ctx.beginPath();
         ctx.moveTo(0, gy);
         ctx.lineTo(w, gy);
         ctx.stroke();
       }
 
-      // V-Groove Seam Base (Dark Chamfer)
+      // Plate weld markings & tack welds
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 12]);
+      ctx.strokeRect(12, 12, w - 24, h - 24);
+      ctx.setLineDash([]);
+
       const path = seamPathRef.current;
+
+      // 2. High-Visibility V-Groove Seam & Root Gap
       if (path.length > 1) {
+        // Bevel Chamfer Shadow (Wide dark groove)
         ctx.beginPath();
         ctx.moveTo(path[0].x, path[0].y);
         for (let i = 1; i < path.length; i++) {
           ctx.lineTo(path[i].x, path[i].y);
         }
-        ctx.strokeStyle = "#0b0f19";
-        ctx.lineWidth = 26;
+        ctx.strokeStyle = "#080c14";
+        ctx.lineWidth = 28;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.stroke();
 
-        ctx.strokeStyle = "#334155";
-        ctx.lineWidth = 10;
+        // Bevel Face (Dark metallic steel groove)
+        ctx.strokeStyle = "#2e3a4e";
+        ctx.lineWidth = 14;
         ctx.stroke();
 
-        // Glowing Guide Line
-        ctx.setLineDash([6, 6]);
-        ctx.strokeStyle = "#00e5ff";
-        ctx.lineWidth = 2;
+        // Root Gap (Narrow center joint gap)
+        ctx.strokeStyle = "#020617";
+        ctx.lineWidth = 4;
         ctx.stroke();
-        ctx.setLineDash([]);
+
+        // High-Tech Laser Seam Tracker Guide (Neon Cyan glowing dashed line)
+        ctx.save();
+        ctx.shadowColor = "#00e5ff";
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = "#00f0ff";
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([8, 6]);
+        ctx.stroke();
+        ctx.restore();
+
+        // Start Node Flag (Green Glow)
+        const startPt = path[0];
+        ctx.save();
+        ctx.shadowColor = "#10b981";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = "#10b981";
+        ctx.beginPath();
+        ctx.arc(startPt.x, startPt.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.fillStyle = "#a7f3d0";
+        ctx.font = "bold 11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("▶ 용접 시작", startPt.x, startPt.y - 14);
+
+        // Finish Node Flag (Amber Glow)
+        const endPt = path[path.length - 1];
+        ctx.save();
+        ctx.shadowColor = "#f59e0b";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.arc(endPt.x, endPt.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.fillStyle = "#fde68a";
+        ctx.font = "bold 11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("🏁 용접 완료", endPt.x, endPt.y - 14);
       }
 
-      // Heat-Affected Zone (HAZ) & Molten Weld Bead Pool
+      // 3. Heat-Affected Zone (HAZ) & Molten Weld Bead Pool
       const beads = beadsRef.current;
       if (beads.length > 1) {
-        // HAZ Tempering Color
+        // HAZ Tempering Color halo
         ctx.beginPath();
         ctx.moveTo(beads[0].x, beads[0].y);
         for (let i = 1; i < beads.length; i++) {
           ctx.lineTo(beads[i].x, beads[i].y);
         }
-        ctx.strokeStyle = "rgba(99, 102, 241, 0.25)";
+        ctx.strokeStyle = "rgba(99, 102, 241, 0.28)";
         ctx.lineWidth = 32;
         ctx.lineCap = "round";
         ctx.stroke();
@@ -215,22 +296,23 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
         ctx.lineWidth = 22;
         ctx.stroke();
 
-        // Weld Ripples
+        // Overlapping Weld Ripples (FCAW Bead Fish-Scale Pattern)
         for (let i = 0; i < beads.length; i++) {
           const b = beads[i];
           const radius = b.width;
           const grad = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, radius);
-          if (b.quality > 0.8) {
+          if (b.quality > 0.75) {
             grad.addColorStop(0, "#fffbeb");
-            grad.addColorStop(0.5, "#f59e0b");
-            grad.addColorStop(1, "#78350f");
-          } else if (b.quality > 0.4) {
-            grad.addColorStop(0, "#fef3c7");
-            grad.addColorStop(0.6, "#d97706");
+            grad.addColorStop(0.4, "#fbbf24");
+            grad.addColorStop(0.8, "#b45309");
             grad.addColorStop(1, "#451a03");
+          } else if (b.quality > 0.45) {
+            grad.addColorStop(0, "#fef3c7");
+            grad.addColorStop(0.5, "#d97706");
+            grad.addColorStop(1, "#361602");
           } else {
-            grad.addColorStop(0, "#94a3b8");
-            grad.addColorStop(0.7, "#475569");
+            grad.addColorStop(0, "#cbd5e1");
+            grad.addColorStop(0.6, "#64748b");
             grad.addColorStop(1, "#1e293b");
           }
 
@@ -241,99 +323,147 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
         }
       }
 
-      // Target Node Indicator
+      // 4. Target Node Pulse Indicator
       const curIdx = currentPathIdxRef.current;
       if (curIdx < path.length) {
         const target = path[curIdx];
+        const pulse = Math.sin(time / 140) * 3;
+
+        ctx.save();
+        ctx.shadowColor = "#facc15";
+        ctx.shadowBlur = 12;
         ctx.strokeStyle = "#facc15";
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(target.x, target.y, 14 + Math.sin(time / 150) * 3, 0, Math.PI * 2);
+        ctx.arc(target.x, target.y, 16 + pulse, 0, Math.PI * 2);
         ctx.stroke();
+
+        // Inner focal crosshair
+        ctx.strokeStyle = "rgba(250, 204, 21, 0.8)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(target.x - 7, target.y);
+        ctx.lineTo(target.x + 7, target.y);
+        ctx.moveTo(target.x, target.y - 7);
+        ctx.lineTo(target.x, target.y + 7);
+        ctx.stroke();
+        ctx.restore();
       }
 
-      // Active Welding Arc Flash
+      // 5. Active Welding Arc Flash & Bead Deposition Logic
+      const m = mousePosRef.current;
       if (isWeldingRef.current && curIdx < path.length) {
-        const m = mousePosRef.current;
-        const target = path[curIdx];
-        const dist = Math.hypot(m.x - target.x, m.y - target.y);
+        // Robust multi-node collision check: inspect next 4 nodes so fast mouse movement never skips
+        let matchedNodeIdx = -1;
+        let matchedDist = 999;
 
-        if (dist <= 35) {
-          let speedQuality = 1;
+        for (let step = 0; step < 5; step++) {
+          const checkIdx = curIdx + step;
+          if (checkIdx < path.length) {
+            const pNode = path[checkIdx];
+            const d = Math.hypot(m.x - pNode.x, m.y - pNode.y);
+            if (d <= 48 && d < matchedDist) {
+              matchedDist = d;
+              matchedNodeIdx = checkIdx;
+            }
+          }
+        }
+
+        if (matchedNodeIdx !== -1) {
+          // Calculate welding speed & deviation quality
+          let speedQuality = 0.9;
           if (lastWeldedPosRef.current) {
             const moveDist = Math.hypot(m.x - lastWeldedPosRef.current.x, m.y - lastWeldedPosRef.current.y);
             const speed = moveDist / Math.max(dt, 0.001);
-            if (speed > 420 || speed < 40) {
-              speedQuality = 0.5;
+            if (speed > 480 || speed < 30) {
+              speedQuality = 0.55;
             } else {
-              speedQuality = 1 - Math.abs(speed - 160) / 260;
+              speedQuality = Math.max(0.65, 1 - Math.abs(speed - 180) / 320);
+            }
+
+            // Interpolate beads between steps for a seamless, continuous weld bead
+            if (moveDist > 6) {
+              const steps = Math.min(Math.floor(moveDist / 5), 6);
+              for (let s = 1; s <= steps; s++) {
+                const interpX = lastWeldedPosRef.current.x + (m.x - lastWeldedPosRef.current.x) * (s / steps);
+                const interpY = lastWeldedPosRef.current.y + (m.y - lastWeldedPosRef.current.y) * (s / steps);
+                beadsRef.current.push({
+                  x: interpX,
+                  y: interpY,
+                  quality: speedQuality,
+                  width: 9 + (1 - speedQuality) * 4,
+                });
+              }
             }
           }
 
-          const devQuality = Math.max(0, 1 - dist / 35);
+          const devQuality = Math.max(0.4, 1 - matchedDist / 48);
           const ptQuality = speedQuality * 0.5 + devQuality * 0.5;
 
           beadsRef.current.push({
             x: m.x,
             y: m.y,
             quality: ptQuality,
-            width: 8 + (1 - speedQuality) * 4,
+            width: 9 + (1 - speedQuality) * 4,
           });
 
           lastWeldedPosRef.current = { x: m.x, y: m.y };
-          stageScoreRef.current += Math.round(ptQuality * 60);
+          stageScoreRef.current += Math.round(ptQuality * 65);
 
-          if (dist < 18) {
-            currentPathIdxRef.current += 1;
-          }
+          // Advance path index smoothly
+          currentPathIdxRef.current = Math.max(currentPathIdxRef.current, matchedNodeIdx + 1);
 
+          // Audio throttling
           if (time - lastSparkAudioTime > 80) {
             gameAudio.playWelding();
             lastSparkAudioTime = time;
           }
 
-          // Sparks
-          for (let s = 0; s < 5; s++) {
+          // Sparks Generation
+          for (let s = 0; s < 4; s++) {
             const angle = Math.random() * Math.PI * 2;
-            const spd = 80 + Math.random() * 240;
+            const spd = 90 + Math.random() * 260;
             sparksRef.current.push({
               x: m.x,
               y: m.y,
               vx: Math.cos(angle) * spd,
-              vy: Math.sin(angle) * spd - 40,
+              vy: Math.sin(angle) * spd - 45,
               alpha: 1,
-              life: 0.25 + Math.random() * 0.3,
-              color: Math.random() > 0.4 ? "#fffbeb" : "#f59e0b",
+              life: 0.22 + Math.random() * 0.28,
+              color: Math.random() > 0.35 ? "#fffbeb" : "#f59e0b",
             });
           }
 
-          // Arc Flash Glow
-          const arcGrad = ctx.createRadialGradient(m.x, m.y, 2, m.x, m.y, 30);
-          arcGrad.addColorStop(0, "rgba(255, 255, 255, 0.98)");
-          arcGrad.addColorStop(0.3, "rgba(186, 230, 253, 0.75)");
-          arcGrad.addColorStop(0.7, "rgba(56, 189, 248, 0.3)");
+          // Brilliant Arc Discharge Glow
+          ctx.save();
+          const arcGrad = ctx.createRadialGradient(m.x, m.y, 2, m.x, m.y, 38);
+          arcGrad.addColorStop(0, "rgba(255, 255, 255, 1)");
+          arcGrad.addColorStop(0.25, "rgba(186, 230, 253, 0.85)");
+          arcGrad.addColorStop(0.65, "rgba(56, 189, 248, 0.4)");
           arcGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
           ctx.fillStyle = arcGrad;
           ctx.beginPath();
-          ctx.arc(m.x, m.y, 30, 0, Math.PI * 2);
+          ctx.arc(m.x, m.y, 38, 0, Math.PI * 2);
           ctx.fill();
+          ctx.restore();
         } else {
           stagePenaltiesRef.current += 1;
         }
 
+        // Check if finished entire weld seam
         if (currentPathIdxRef.current >= path.length) {
           isWeldingRef.current = false;
           handleStageFinish();
         }
       }
 
-      // Update sparks
+      // 6. Update and render sparks
       const sparks = sparksRef.current;
       for (let i = sparks.length - 1; i >= 0; i--) {
         const sp = sparks[i];
         sp.x += sp.vx * dt;
         sp.y += sp.vy * dt;
-        sp.vy += 320 * dt;
+        sp.vy += 340 * dt;
         sp.life -= dt;
         sp.alpha = Math.max(0, sp.life / 0.5);
 
@@ -352,22 +482,55 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
         ctx.globalAlpha = 1;
       }
 
-      // Torch reticle
-      const m = mousePosRef.current;
+      // 7. Industrial Welding Torch Nozzle & Reticle
       if (m.x > 0 && m.y > 0) {
-        ctx.strokeStyle = isWeldingRef.current ? "#22d3ee" : "rgba(255,255,255,0.4)";
+        // Distance to target indicator ring
+        const inWeldRange = curIdx < path.length && Math.hypot(m.x - path[curIdx].x, m.y - path[curIdx].y) <= 48;
+
+        ctx.save();
+        ctx.strokeStyle = isWeldingRef.current
+          ? "#38bdf8"
+          : inWeldRange
+          ? "#10b981"
+          : "rgba(255,255,255,0.45)";
         ctx.lineWidth = 1.5;
+
+        // Crosshair
         ctx.beginPath();
-        ctx.moveTo(m.x - 12, m.y);
-        ctx.lineTo(m.x + 12, m.y);
-        ctx.moveTo(m.x, m.y - 12);
-        ctx.lineTo(m.x, m.y + 12);
+        ctx.moveTo(m.x - 14, m.y);
+        ctx.lineTo(m.x + 14, m.y);
+        ctx.moveTo(m.x, m.y - 14);
+        ctx.lineTo(m.x, m.y + 14);
         ctx.stroke();
+
         ctx.beginPath();
-        ctx.arc(m.x, m.y, 8, 0, Math.PI * 2);
+        ctx.arc(m.x, m.y, inWeldRange ? 12 : 8, 0, Math.PI * 2);
         ctx.stroke();
+
+        // Realistic Torch Ceramic Cup & Gas Nozzle Graphic
+        ctx.fillStyle = "#334155";
+        ctx.beginPath();
+        ctx.moveTo(m.x + 8, m.y - 20);
+        ctx.lineTo(m.x + 14, m.y - 42);
+        ctx.lineTo(m.x + 22, m.y - 40);
+        ctx.lineTo(m.x + 16, m.y - 18);
+        ctx.closePath();
+        ctx.fill();
+
+        // Copper Tip
+        ctx.fillStyle = "#b45309";
+        ctx.beginPath();
+        ctx.moveTo(m.x + 4, m.y - 10);
+        ctx.lineTo(m.x + 8, m.y - 20);
+        ctx.lineTo(m.x + 16, m.y - 18);
+        ctx.lineTo(m.x + 8, m.y - 8);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
       }
 
+      ctx.restore(); // Restore DPR scale
       animationFrameRef.current = requestAnimationFrame(render);
     };
 
@@ -377,15 +540,15 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
 
   const handleStageFinish = () => {
     gameAudio.playVictory();
-    const finalScore = stageScoreRef.current + timeLeftRef.current * 40 - stagePenaltiesRef.current * 10;
-    const calcScore = Math.max(300, finalScore);
+    const finalScore = stageScoreRef.current + timeLeftRef.current * 40 - stagePenaltiesRef.current * 8;
+    const calcScore = Math.max(400, finalScore);
     const newTotal = totalScore + calcScore;
     setTotalScore(newTotal);
 
     let grade = "A";
-    if (stagePenaltiesRef.current < 4 && calcScore > 1600) grade = "S+";
-    else if (stagePenaltiesRef.current < 12) grade = "S";
-    else if (stagePenaltiesRef.current < 25) grade = "A";
+    if (stagePenaltiesRef.current < 6 && calcScore > 1700) grade = "S+";
+    else if (stagePenaltiesRef.current < 15) grade = "S";
+    else if (stagePenaltiesRef.current < 30) grade = "A";
     else grade = "B";
 
     setQualityGrade(grade);
@@ -395,7 +558,7 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
       setGameOver(true);
       onFinish(newTotal);
       confetti({
-        particleCount: 80,
+        particleCount: 90,
         spread: 80,
         origin: { y: 0.6 },
         colors: ["#F5A623", "#002C6C", "#00A352", "#FFFFFF"],
@@ -407,6 +570,11 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
     if (!isPlaying || stageComplete || gameOver) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore if pointer capture fails
+    }
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -426,55 +594,60 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
     };
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignore
+    }
     isWeldingRef.current = false;
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col items-center select-none font-sans">
+    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-sans">
       {/* Top Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl mb-3">
+      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 sm:px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xl mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
             <Flame className="w-5 h-5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-base sm:text-lg text-white">용접 마스터: 선박 후판 비드 (FCAW)</h3>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <h3 className="font-black text-sm sm:text-base text-white">용접 마스터: 선체 후판 비드 (FCAW)</h3>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
                 STAGE {stage}/3
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-medium">
-              청색 V-그루브를 따라 토치를 드래그하여 결함 없는 초정밀 용접 비드를 생성하세요.
+            <p className="text-xs text-slate-400 font-medium hidden sm:block">
+              청색 V-그루브 레이저 가이드를 따라 드래그하여 결함 없는 초정밀 비드를 완성하세요.
             </p>
           </div>
         </div>
 
         {/* Live Gauges */}
-        <div className="flex items-center gap-4 text-xs font-semibold">
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">보호가스 잔여시간</span>
-            <span className={`text-base font-black ${timeLeft <= 8 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
+        <div className="flex items-center gap-3 sm:gap-4 text-xs font-semibold">
+          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[10px]">보호가스 잔여</span>
+            <span className={`text-sm sm:text-base font-black ${timeLeft <= 8 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
               {timeLeft}초
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
+          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60 text-center">
             <span className="text-slate-400 block text-[10px]">용접 진행도</span>
-            <span className="text-base font-black text-cyan-400">
+            <span className="text-sm sm:text-base font-black text-cyan-400">
               {seamPathRef.current.length > 0 ? Math.round((currentPathIdxRef.current / seamPathRef.current.length) * 100) : 0}%
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[10px]">누적 용접 점수</span>
-            <span className="text-base font-black text-amber-400">{totalScore.toLocaleString()}점</span>
+          <div className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[10px]">누적 점수</span>
+            <span className="text-sm sm:text-base font-black text-amber-400">{totalScore.toLocaleString()}점</span>
           </div>
 
           <button
             onClick={toggleSound}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-all active:scale-95"
+            className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
             title={isMuted ? "소리 켜기" : "음소거"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
@@ -482,32 +655,31 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
         </div>
       </div>
 
-      {/* Main Canvas Viewport */}
-      <div className="w-full relative rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 aspect-[16/9] min-h-[400px] flex items-center justify-center">
+      {/* Main Canvas Viewport - Calibrated height so seam is always centered and never clipped */}
+      <div className="w-full h-[380px] sm:h-[430px] md:h-[460px] relative rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 flex items-center justify-center">
         <canvas
           ref={canvasRef}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
-          className="w-full h-full cursor-crosshair touch-none"
+          className="w-full h-full cursor-crosshair touch-none block"
         />
 
         {/* Start Overlay */}
         {!isPlaying && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 animate-in fade-in duration-200">
             <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-4 text-amber-400 shadow-xl shadow-amber-500/10">
               <Flame className="w-8 h-8" />
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">선체 특수강 V-그루브 용접 마스터</h2>
             <p className="text-slate-300 text-sm max-w-lg mb-6 leading-relaxed">
-              가만히 있으면 아크가 발생하지 않으며 <strong>30초 보호가스 타이머</strong>가 소진됩니다!<br />
-              마우스를 누른 채 청색 가이드 라인을 따라 균일한 속도로 운봉하여<br />
-              <strong>비파괴 초음파(UT) S등급</strong>의 결함 없는 명품 비드를 완성하세요.
+              화면 중앙의 <strong>청색 레이저 가이드 선</strong>을 따라 마우스를 누른 채<br />
+              일정한 속도로 이동하여 <strong>선급 기준(KR/DNV) 최고 등급</strong>의 비드를 용접하세요.
             </p>
             <button
               onClick={startGame}
-              className="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-base rounded-xl shadow-lg shadow-orange-500/25 active:scale-95 transition-all flex items-center gap-2"
+              className="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-base rounded-xl shadow-lg shadow-orange-500/25 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <Play className="w-5 h-5 fill-slate-950" />
               아크 용접 시작
@@ -537,14 +709,14 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
             </div>
             <button
               onClick={() => startStage(stage + 1)}
-              className="px-7 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all"
+              className="px-7 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all cursor-pointer"
             >
               다음 스테이지 ({stage + 1}/3) 진행 →
             </button>
           </div>
         )}
 
-        {/* Game Over */}
+        {/* Game Over Banner */}
         {gameOver && (
           <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-20 animate-in fade-in zoom-in-95 duration-200">
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-3 ${stageComplete ? "bg-amber-500/20 text-amber-400" : "bg-rose-500/20 text-rose-400"}`}>
@@ -562,7 +734,7 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
             </div>
             <button
               onClick={startGame}
-              className="px-7 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2"
+              className="px-7 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               다시 도전하기
@@ -575,7 +747,7 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
       <div className="w-full mt-3 bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between text-xs text-slate-400">
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-          <span>팁: 너무 빠르면 불완전 용입(Undercut), 너무 느리면 모재 용락 발생! 일정한 운봉 속도를 유지하세요.</span>
+          <span>팁: 마우스 버튼을 누른 채 청색 가이드 라인을 따라 전진하면 아크가 점화되고 비드가 연속 생성됩니다.</span>
         </div>
         <span className="text-slate-500 hidden sm:inline">EH36 High-Tensile Steel FCAW</span>
       </div>
