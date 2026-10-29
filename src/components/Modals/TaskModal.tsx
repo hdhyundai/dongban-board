@@ -242,22 +242,21 @@ export default function TaskModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {" "}
             <div>
-              {" "}
               <label className="block text-[12px] font-bold text-[#3A3A3C] mb-1.5 pl-1">
                 담당자 명{" "}
-                {type !== "notice" && teamId !== "t5" && (
+                {type !== "notice" && teamId !== "t5" && teamId !== "t6" && (
                   <span className="text-[#FF3B30]">*</span>
                 )}
-              </label>{" "}
+              </label>
               <input
-                required={type !== "notice" && teamId !== "t5"}
+                required={type !== "notice" && teamId !== "t5" && teamId !== "t6"}
                 disabled={!isCreator}
                 type="text"
                 value={assignee}
                 onChange={(e) => setAssignee(e.target.value)}
                 className="w-full bg-[#F5F5F7] border border-gray-300 rounded-[10px] px-3 py-2 text-[14px] font-bold focus:bg-white focus:border-[#007AFF] outline-none placeholder:text-[#86868B] disabled:opacity-70 disabled:bg-gray-200"
-                placeholder="예: 김상생 책임"
-              />{" "}
+                placeholder={teamId === "t5" ? "담당임원 (선택 사항)" : teamId === "t6" ? "부서장 (선택 사항)" : "예: 김상생 책임"}
+              />
             </div>{" "}
             <div>
               {" "}

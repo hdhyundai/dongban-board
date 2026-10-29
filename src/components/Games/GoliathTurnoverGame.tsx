@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Play, RotateCcw, Volume2, VolumeX, Shield, ArrowLeftRight, Wind, Gauge, AlertTriangle, Sparkles, CheckCircle2 } from "lucide-react";
+import { Play, RotateCcw, Volume2, VolumeX, ArrowLeftRight, Award, AlertTriangle, ShieldCheck, ArrowUp, ArrowDown } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
 
@@ -8,37 +8,41 @@ interface GoliathTurnoverGameProps {
 }
 
 export default function GoliathTurnoverGame({ onFinish }: GoliathTurnoverGameProps) {
+  const mountRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [gameState, setGameState] = useState<"READY" | "PLAYING" | "GAMEOVER">("READY");
-  const [score, setScore] = useState(0);
-  const [angleDeg, setAngleDeg] = useState(0); // 0 to 180°
-  const [mainTension, setMainTension] = useState(0); // tons
-  const [auxTension, setAuxTension] = useState(0); // tons
-  const [altitudeM, setAltitudeM] = useState(0); // clearance meters
-  const [windKnots, setWindKnots] = useState(12);
-  const [phaseStep, setPhaseStep] = useState<"LIFT" | "TURNOVER" | "STABILIZE" | "LANDING">("LIFT");
-  const [isMuted, setIsMuted] = useState(gameAudio.getMuted());
-  const [alarmText, setAlarmText] = useState("");
 
+  const [gameState, setGameState] = useState<"READY" | "PLAYING" | "GAMEOVER" | "SUCCESS">("READY");
+  const [score, setScore] = useState(0);
+  const [currentAngle, setCurrentAngle] = useState(0);
+  const [hoist1Tension, setHoist1Tension] = useState(450); // Tons
+  const [hoist2Tension, setHoist2Tension] = useState(450); // Tons
+  const [isMuted, setIsMuted] = useState(gameAudio.getMuted());
+  const [timeLeft, setTimeLeft] = useState(45);
+
+  // Controller inputs
+  const controlRef = useRef<{ h1Up: boolean; h1Down: boolean; h2Up: boolean; h2Down: boolean }>({
+    h1Up: false,
+    h1Down: false,
+    h2Up: false,
+    h2Down: false,
+  });
+
+  // Physical simulation state
   const stateRef = useRef({
+    isPlaying: false,
     score: 0,
-    angle: 0, // radians: 0 (flat on ground) to PI (180° inverted)
+    timeLeft: 45,
+    angle: 0, // 0 to 180 degrees
     angularVelocity: 0,
-    altitude: 0, // 0 to 45 meters
-    mainHoistY: 260, // ground level
-    auxHoistY: 260,
-    trolleyX: 300,
-    pendulumSway: 0, // pendulum angle swing in radians
-    pendulumVelocity: 0,
-    blockWeight: 820, // 820 tons
-    mainTension: 0,
-    auxTension: 0,
-    wind: 12,
-    windGustTimer: 0,
-    isCompleted: false,
-    particles: [] as Array<{ x: number; y: number; vx: number; vy: number; life: number; color: string }>,
-    lastTime: 0,
-    keys: { mainUp: false, mainDown: false, auxUp: false, auxDown: false, trolleyL: false, trolleyR: false },
+    h1Y: 200, // Hoist 1 hook Y in canvas space
+    h2Y: 200, // Hoist 2 hook Y in canvas space
+    tension1: 450,
+    tension2: 450,
+    overloadCount: 0,
+    smoothnessScore: 1000,
+    screenW: 800,
+    screenH: 520,
+    lastTime: performance.now(),
   });
 
   const toggleSound = (e: React.MouseEvent) => {
@@ -48,626 +52,586 @@ export default function GoliathTurnoverGame({ onFinish }: GoliathTurnoverGamePro
   };
 
   const startGame = () => {
-    const s = stateRef.current;
-    s.score = 0;
-    s.angle = 0;
-    s.angularVelocity = 0;
-    s.altitude = 0;
-    s.mainHoistY = 250; // starts at ground
-    s.auxHoistY = 250;
-    s.trolleyX = 300;
-    s.pendulumSway = 0;
-    s.pendulumVelocity = 0;
-    s.mainTension = 0;
-    s.auxTension = 0;
-    s.wind = 12;
-    s.windGustTimer = 0;
-    s.isCompleted = false;
-    s.particles = [];
-    s.lastTime = performance.now();
+    stateRef.current.isPlaying = true;
+    stateRef.current.score = 0;
+    stateRef.current.timeLeft = 45;
+    stateRef.current.angle = 0;
+    stateRef.current.angularVelocity = 0;
+    stateRef.current.h1Y = 220;
+    stateRef.current.h2Y = 220;
+    stateRef.current.tension1 = 450;
+    stateRef.current.tension2 = 450;
+    stateRef.current.overloadCount = 0;
+    stateRef.current.smoothnessScore = 1200;
+    stateRef.current.lastTime = performance.now();
 
-    setScore(0);
-    setAngleDeg(0);
-    setAltitudeM(0);
-    setPhaseStep("LIFT");
-    setAlarmText("");
     setGameState("PLAYING");
-    gameAudio.playClick();
-    gameAudio.playMetalClang(500);
+    setScore(0);
+    setCurrentAngle(0);
+    setHoist1Tension(450);
+    setHoist2Tension(450);
+    setTimeLeft(45);
+
+    gameAudio.playStart();
+  };
+
+  const handleGameOver = (isSuccess: boolean) => {
+    if (!stateRef.current.isPlaying) return;
+    stateRef.current.isPlaying = false;
+
+    let finalScore = 0;
+    if (isSuccess) {
+      const anglePrecision = Math.max(0, 1000 - Math.abs(180 - stateRef.current.angle) * 120);
+      const timeBonus = Math.floor(stateRef.current.timeLeft * 25);
+      const smoothness = Math.max(0, Math.floor(stateRef.current.smoothnessScore));
+      finalScore = Math.floor(anglePrecision + timeBonus + smoothness);
+
+      setGameState("SUCCESS");
+      gameAudio.playVictory();
+      confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+    } else {
+      finalScore = Math.max(100, Math.floor(stateRef.current.angle * 4));
+      setGameState("GAMEOVER");
+      gameAudio.playFailure();
+    }
+
+    setScore(finalScore);
+    onFinish(finalScore);
   };
 
   // Keyboard controls
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState !== "PLAYING") return;
-      const k = stateRef.current.keys;
-      if (e.key === "w" || e.key === "W") k.mainUp = true;
-      if (e.key === "s" || e.key === "S") k.mainDown = true;
-      if (e.key === "ArrowUp") k.auxUp = true;
-      if (e.key === "ArrowDown") k.auxDown = true;
-      if (e.key === "a" || e.key === "A" || e.key === "ArrowLeft") k.trolleyL = true;
-      if (e.key === "d" || e.key === "D" || e.key === "ArrowRight") k.trolleyR = true;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === "q") controlRef.current.h1Up = true;
+      if (k === "a") controlRef.current.h1Down = true;
+      if (k === "w" || k === "e" || k === "arrowup") controlRef.current.h2Up = true;
+      if (k === "s" || k === "d" || k === "arrowdown") controlRef.current.h2Down = true;
     };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const k = stateRef.current.keys;
-      if (e.key === "w" || e.key === "W") k.mainUp = false;
-      if (e.key === "s" || e.key === "S") k.mainDown = false;
-      if (e.key === "ArrowUp") k.auxUp = false;
-      if (e.key === "ArrowDown") k.auxDown = false;
-      if (e.key === "a" || e.key === "A" || e.key === "ArrowLeft") k.trolleyL = false;
-      if (e.key === "d" || e.key === "D" || e.key === "ArrowRight") k.trolleyR = false;
+    const onKeyUp = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === "q") controlRef.current.h1Up = false;
+      if (k === "a") controlRef.current.h1Down = false;
+      if (k === "w" || k === "e" || k === "arrowup") controlRef.current.h2Up = false;
+      if (k === "s" || k === "d" || k === "arrowdown") controlRef.current.h2Down = false;
     };
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [gameState]);
 
-  // Main Simulation Loop
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
+
+  // Main 2D Loop & Responsive Resize
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const container = mountRef.current;
+    if (!canvas || !container) return;
 
-    let animId: number;
+    let animId = 0;
 
-    const finishGame = (success: boolean) => {
-      setGameState("GAMEOVER");
-      const finalScore = stateRef.current.score;
-      onFinish(finalScore);
-      if (success) {
-        confetti({
-          particleCount: 90,
-          spread: 80,
-          origin: { y: 0.6 },
-          colors: ["#F5A623", "#002C6C", "#00A352", "#FFFFFF"],
-        });
-      }
+    const resize = () => {
+      const rect = container.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(320, Math.floor(rect.width));
+      const h = Math.max(280, Math.floor(rect.height));
+
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+
+      stateRef.current.screenW = w;
+      stateRef.current.screenH = h;
     };
 
-    const render = (now: number) => {
-      const s = stateRef.current;
-      const dt = Math.min((now - s.lastTime) / 1000, 0.05);
-      s.lastTime = now;
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(container);
+    resize();
 
-      const w = canvas.width;
-      const h = canvas.height;
+    const render = (time: number) => {
+      const dt = Math.min((time - stateRef.current.lastTime) / 1000, 0.1);
+      stateRef.current.lastTime = time;
 
-      if (gameState === "PLAYING") {
-        // Hoist & Trolley Input Handling
-        const hoistSpeed = 38 * dt; // px/s
-        if (s.keys.mainUp) {
-          s.mainHoistY = Math.max(90, s.mainHoistY - hoistSpeed);
-          gameAudio.playHydraulicWhoosh();
-        }
-        if (s.keys.mainDown) {
-          s.mainHoistY = Math.min(260, s.mainHoistY + hoistSpeed);
-        }
-        if (s.keys.auxUp) {
-          s.auxHoistY = Math.max(90, s.auxHoistY - hoistSpeed);
-          gameAudio.playHydraulicWhoosh();
-        }
-        if (s.keys.auxDown) {
-          s.auxHoistY = Math.min(260, s.auxHoistY + hoistSpeed);
-        }
-        if (s.keys.trolleyL) {
-          s.trolleyX = Math.max(140, s.trolleyX - 45 * dt);
-          s.pendulumVelocity -= 0.6 * dt; // trolley move affects swing
-        }
-        if (s.keys.trolleyR) {
-          s.trolleyX = Math.min(w - 140, s.trolleyX + 45 * dt);
-          s.pendulumVelocity += 0.6 * dt;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      const w = stateRef.current.screenW;
+      const h = stateRef.current.screenH;
+
+      // Update simulation if PLAYING
+      if (stateRef.current.isPlaying) {
+        stateRef.current.timeLeft -= dt;
+        if (stateRef.current.timeLeft <= 0) {
+          handleGameOver(false);
         }
 
-        // Wind gusts
-        s.windGustTimer += dt;
-        if (s.windGustTimer > 2.5) {
-          s.wind = 10 + Math.sin(now * 0.002) * 8 + (Math.random() * 4 - 2);
-          setWindKnots(Math.round(s.wind));
-          s.windGustTimer = 0;
-        }
+        // Hoist speed (pixels per second)
+        const hoistSpeed = 75;
+        if (controlRef.current.h1Up) stateRef.current.h1Y -= hoistSpeed * dt;
+        if (controlRef.current.h1Down) stateRef.current.h1Y += hoistSpeed * dt;
+        if (controlRef.current.h2Up) stateRef.current.h2Y -= hoistSpeed * dt;
+        if (controlRef.current.h2Down) stateRef.current.h2Y += hoistSpeed * dt;
 
-        // Altitude calculation: Lowest hook position relative to ground (260)
-        const avgHookY = (s.mainHoistY + s.auxHoistY) / 2;
-        const currentAltitudeM = Math.max(0, +(((260 - avgHookY) / 160) * 35).toFixed(1));
-        s.altitude = currentAltitudeM;
-        setAltitudeM(currentAltitudeM);
+        // Boundaries for hoists
+        const minY = 90;
+        const maxY = h - 140;
+        stateRef.current.h1Y = Math.max(minY, Math.min(maxY, stateRef.current.h1Y));
+        stateRef.current.h2Y = Math.max(minY, Math.min(maxY, stateRef.current.h2Y));
 
-        // Physics: Angle depends strictly on cable height difference, but only works when lifted!
-        // When grounded (altitude < 3m), block cannot invert!
-        if (currentAltitudeM < 2.5) {
-          s.angle = 0;
-          s.angularVelocity = 0;
-          setPhaseStep("LIFT");
-          setAlarmText("");
-        } else {
-          // Turnover kinematics: Aux hoist lifts relative to main hoist to flip block
-          // heightDelta: when Aux is lifted (s.auxHoistY < s.mainHoistY), block rotates
-          const heightDelta = s.mainHoistY - s.auxHoistY; // -150 to +150
-          const targetRad = Math.max(0, Math.min(Math.PI, ((heightDelta + 40) / 130) * Math.PI));
+        // Block Physics: calculate angle based on hoist differential
+        // Horizontal distance between hoists = w * 0.38
+        const hoistSpan = Math.max(160, w * 0.38);
+        const deltaY = stateRef.current.h2Y - stateRef.current.h1Y;
 
-          s.angularVelocity += (targetRad - s.angle) * 4.0 * dt - s.angularVelocity * 2.8 * dt;
-          s.angle += s.angularVelocity * dt;
+        // Target geometric angle in degrees
+        // As H2 goes lower or H1 goes higher, angle increases from 0 to 180
+        const geometricAngle = Math.atan2(deltaY, hoistSpan * 0.5) * (180 / Math.PI);
+        const mappedAngle = Math.max(0, Math.min(185, (deltaY / 140) * 180));
 
-          if (s.angle < Math.PI * 0.4) {
-            setPhaseStep("TURNOVER");
-          } else if (s.angle < Math.PI * 0.92) {
-            setPhaseStep("STABILIZE");
-          } else {
-            setPhaseStep("LANDING");
+        // Smooth physical dampening
+        const targetAngVel = (mappedAngle - stateRef.current.angle) * 3.5;
+        stateRef.current.angularVelocity += (targetAngVel - stateRef.current.angularVelocity) * dt * 4;
+        stateRef.current.angle += stateRef.current.angularVelocity * dt;
+
+        // Dynamic Cable Tension Calculation (Tons)
+        // Total block mass = 900T
+        const angRad = (stateRef.current.angle * Math.PI) / 180;
+        const baseT1 = 450 + Math.sin(angRad) * 220 + (stateRef.current.angularVelocity * 15);
+        const baseT2 = 900 - baseT1;
+
+        stateRef.current.tension1 = Math.max(50, Math.min(950, baseT1));
+        stateRef.current.tension2 = Math.max(50, Math.min(950, baseT2));
+
+        // Overload / Shock penalty
+        if (stateRef.current.tension1 > 780 || stateRef.current.tension2 > 780) {
+          stateRef.current.overloadCount += dt;
+          stateRef.current.smoothnessScore -= dt * 60;
+          if (stateRef.current.overloadCount > 2.5) {
+            // Cable break!
+            handleGameOver(false);
           }
         }
 
-        const currentDeg = Math.round((s.angle / Math.PI) * 180);
-        setAngleDeg(currentDeg);
-
-        // Pendulum wind swing physics
-        const windForce = (s.wind / 35) * (0.4 + Math.sin(s.angle) * 0.6);
-        const restoringTorque = -3.5 * s.pendulumSway;
-        s.pendulumVelocity += (restoringTorque + windForce) * dt;
-        s.pendulumVelocity *= Math.pow(0.94, dt * 60);
-        s.pendulumSway += s.pendulumVelocity * dt;
-
-        // Dynamic cable tension calculation (Load transfer at 90° dead-center)
-        if (currentAltitudeM > 0.5) {
-          const cosA = Math.cos(s.angle);
-          // Main tension starts high at 0°, transfers to Aux tension as angle reaches 180°
-          s.mainTension = Math.max(0, Math.round(s.blockWeight * (0.5 + 0.48 * cosA) + (Math.random() * 8 - 4)));
-          s.auxTension = Math.max(0, Math.round(s.blockWeight * (0.5 - 0.48 * cosA) + (Math.random() * 8 - 4)));
-        } else {
-          s.mainTension = 0;
-          s.auxTension = 0;
-        }
-        setMainTension(s.mainTension);
-        setAuxTension(s.auxTension);
-
-        // Cable overload safety check (>760 tons on a single hook)
-        const singleHookMax = 780;
-        const isCableOverload = s.mainTension > singleHookMax || s.auxTension > singleHookMax;
-        const isSwayExcess = Math.abs(s.pendulumSway) > 0.28;
-
-        if (isCableOverload) {
-          setAlarmText("경고: 단일 와이어 권상 하중 초과! (780T 한계)");
-        } else if (isSwayExcess) {
-          setAlarmText("경고: 강풍 횡진동(Sway) 위험! 트롤리로 진동을 감쇠하세요!");
-        } else {
-          setAlarmText("");
+        // Check Success Condition: Angle near 180 deg (±4 deg) and stable
+        if (
+          Math.abs(stateRef.current.angle - 180) < 4.5 &&
+          Math.abs(stateRef.current.angularVelocity) < 2.0 &&
+          stateRef.current.h1Y > h - 180
+        ) {
+          handleGameOver(true);
         }
 
-        // Failure conditions
-        if (s.mainTension > 840 || s.auxTension > 840 || Math.abs(s.pendulumSway) > 0.45) {
-          gameAudio.playBomb();
-          finishGame(false);
-          return;
-        }
-
-        // Success condition: 180° Inversion AND Smoothly lowered to transporter (<5m altitude)
-        if (currentDeg >= 175 && currentAltitudeM <= 3.8 && Math.abs(s.pendulumSway) < 0.08 && !s.isCompleted) {
-          s.isCompleted = true;
-          gameAudio.playShipHorn();
-          gameAudio.playVictory();
-          const bonus = 3000 + Math.round((45 - s.wind) * 20);
-          s.score += bonus;
-          setScore(s.score);
-          setTimeout(() => finishGame(true), 1200);
-        } else if (currentAltitudeM > 3) {
-          // Active score accumulation while rotating
-          s.score += Math.round(currentDeg * 0.15 * dt * 8);
-          setScore(s.score);
-        }
+        // Update React HUD states
+        setCurrentAngle(Math.round(stateRef.current.angle * 10) / 10);
+        setHoist1Tension(Math.round(stateRef.current.tension1));
+        setHoist2Tension(Math.round(stateRef.current.tension2));
+        setTimeLeft(Math.max(0, Math.ceil(stateRef.current.timeLeft)));
       }
 
-      // ---------------- RENDER GOLIATH CRANE VIEWPORT ----------------
-      ctx.clearRect(0, 0, w, h);
-
-      // 1. Shipyard Drydock & Sky Background
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-      skyGrad.addColorStop(0, "#0f172a");
-      skyGrad.addColorStop(0.6, "#1e293b");
-      skyGrad.addColorStop(1, "#334155");
-      ctx.fillStyle = skyGrad;
+      // --- 2D RENDERING ---
+      // 1. Drydock Background
+      ctx.fillStyle = "#0f172a"; // Deep navy dock
       ctx.fillRect(0, 0, w, h);
 
-      // Yard ground / concrete assembly slab
+      // Dock side walls and dock pit floor
+      const dockFloorY = h - 40;
       ctx.fillStyle = "#1e293b";
-      ctx.fillRect(0, h - 55, w, 55);
-      ctx.strokeStyle = "#475569";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, h - 55);
-      ctx.lineTo(w, h - 55);
-      ctx.stroke();
+      ctx.fillRect(0, dockFloorY, w, 40);
 
-      // 2. Transporter Flatbed Vehicle (48-wheel Multi-axle Transporter)
-      const transX = w / 2 - 80;
-      const transY = h - 50;
-      ctx.fillStyle = "#f59e0b"; // Yellow heavy transporter
-      ctx.fillRect(transX, transY, 160, 18);
-      ctx.fillStyle = "#0f172a";
-      for (let wx = transX + 10; wx < transX + 155; wx += 14) {
-        ctx.beginPath();
-        ctx.arc(wx, transY + 22, 6, 0, Math.PI * 2);
-        ctx.fill();
+      // Keel blocks on dock floor (concrete supports where 180deg block should land)
+      ctx.fillStyle = "#f59e0b";
+      const blockBaseW = 40;
+      for (let bx = w / 2 - 120; bx <= w / 2 + 120; bx += 60) {
+        ctx.fillRect(bx - blockBaseW / 2, dockFloorY - 14, blockBaseW, 14);
+        ctx.strokeStyle = "#78350f";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(bx - blockBaseW / 2, dockFloorY - 14, blockBaseW, 14);
       }
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 9px sans-serif";
-      ctx.fillText("HD SAMHO 1000T TRANSPORTER", transX + 10, transY + 12);
 
-      // 3. Giant Goliath Crane Structure (1,200T 골리앗 크레인)
-      // Left and Right Giant Legs (A-frame Truss)
-      ctx.fillStyle = "#eab308";
-      // Left Leg
-      ctx.beginPath();
-      ctx.moveTo(40, h - 55);
-      ctx.lineTo(80, 50);
-      ctx.lineTo(95, 50);
-      ctx.lineTo(60, h - 55);
-      ctx.closePath();
-      ctx.fill();
-
-      // Right Leg
-      ctx.beginPath();
-      ctx.moveTo(w - 40, h - 55);
-      ctx.lineTo(w - 80, 50);
-      ctx.lineTo(w - 95, 50);
-      ctx.lineTo(w - 60, h - 55);
-      ctx.closePath();
-      ctx.fill();
-
-      // Horizontal Gantry Girder Beam (상부 거더)
-      ctx.fillStyle = "#ca8a04";
-      ctx.fillRect(70, 30, w - 140, 24);
-      ctx.fillStyle = "#eab308";
-      ctx.fillRect(70, 34, w - 140, 16);
-
-      // HD Hyundai Crane Brand Mark
-      ctx.fillStyle = "#002C6C";
-      ctx.font = "black 12px sans-serif";
-      ctx.fillText("HD HYUNDAI 1200T GOLIATH CRANE", w / 2 - 110, 46);
-
-      // 4. Moving Hoist Trolleys on Girder
-      const tX = s.trolleyX;
-      // Main Hoist Trolley
-      ctx.fillStyle = "#0284c7";
-      ctx.fillRect(tX - 35, 24, 30, 12);
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 8px sans-serif";
-      ctx.fillText("주권", tX - 28, 33);
-
-      // Aux Hoist Trolley
-      ctx.fillStyle = "#ea580c";
-      ctx.fillRect(tX + 5, 24, 30, 12);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText("보권", tX + 12, 33);
-
-      // 5. Heavy Steel Wire Ropes from Trolleys to Hooks
-      // Wire sway deflection
-      const swayOffset = Math.sin(s.pendulumSway) * 50;
-
-      const mainHookX = tX - 20 + swayOffset;
-      const mainHookY = s.mainHoistY;
-
-      const auxHookX = tX + 20 + swayOffset;
-      const auxHookY = s.auxHoistY;
-
-      // Draw Main Wire (Dual lines)
-      ctx.strokeStyle = "#cbd5e1";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(tX - 25, 36);
-      ctx.lineTo(mainHookX - 4, mainHookY);
-      ctx.moveTo(tX - 15, 36);
-      ctx.lineTo(mainHookX + 4, mainHookY);
-      ctx.stroke();
-
-      // Draw Aux Wire (Dual lines)
-      ctx.strokeStyle = "#f97316";
-      ctx.beginPath();
-      ctx.moveTo(tX + 15, 36);
-      ctx.lineTo(auxHookX - 4, auxHookY);
-      ctx.moveTo(tX + 25, 36);
-      ctx.lineTo(auxHookX + 4, auxHookY);
-      ctx.stroke();
-
-      // Sheave Hook Blocks
-      ctx.fillStyle = "#334155";
-      ctx.fillRect(mainHookX - 10, mainHookY, 20, 14);
-      ctx.fillRect(auxHookX - 10, auxHookY, 20, 14);
-
-      // Heavy Lifting Hooks
-      ctx.strokeStyle = "#e2e8f0";
+      // 2. Goliath Crane Gantry Overhead Beam
+      const gantryY = 50;
+      ctx.fillStyle = "#eab308"; // Goliath Crane Yellow
+      ctx.fillRect(20, gantryY - 16, w - 40, 24);
+      ctx.strokeStyle = "#ca8a04";
       ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(mainHookX, mainHookY + 20, 7, 0, Math.PI);
-      ctx.arc(auxHookX, auxHookY + 20, 7, 0, Math.PI);
-      ctx.stroke();
+      ctx.strokeRect(20, gantryY - 16, w - 40, 24);
 
-      // 6. 900-Ton Curved Hull Bilge Mega-Block (곡블록)
-      // Block center sits suspended between the two hooks
-      const blockCenterX = (mainHookX + auxHookX) / 2;
-      const blockCenterY = (mainHookY + auxHookY) / 2 + 30;
-
-      ctx.save();
-      ctx.translate(blockCenterX, blockCenterY);
-      ctx.rotate(s.angle);
-
-      // Block Shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-      ctx.fillRect(-85, -28, 170, 56);
-
-      // Curved Bilge Plating (Steel Blue Primer)
-      ctx.fillStyle = "#1e3a8a";
-      ctx.beginPath();
-      ctx.roundRect(-80, -25, 160, 50, [12, 12, 4, 4]);
-      ctx.fill();
-      ctx.strokeStyle = "#60a5fa";
+      // Crane truss diagonal braces
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
       ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Internal Longitudinal Stiffeners & Web Frames (늑골 보강재 격자)
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
-      ctx.lineWidth = 1.5;
-      for (let lx = -60; lx <= 60; lx += 20) {
+      for (let tx = 30; tx < w - 40; tx += 40) {
         ctx.beginPath();
-        ctx.moveTo(lx, -25);
-        ctx.lineTo(lx, 25);
+        ctx.moveTo(tx, gantryY - 16);
+        ctx.lineTo(tx + 20, gantryY + 8);
+        ctx.lineTo(tx + 40, gantryY - 16);
         ctx.stroke();
       }
 
-      // Lifting Lug Trunnions (턴오버 전용 러그)
-      ctx.fillStyle = "#f59e0b";
-      ctx.beginPath();
-      ctx.arc(-70, -25, 8, 0, Math.PI * 2);
-      ctx.arc(70, -25, 8, 0, Math.PI * 2);
-      ctx.fill();
+      // Crane Name Plate
+      ctx.fillStyle = "#002c6c";
+      ctx.font = "bold 11px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("HD SAMHO GOLIATH CRANE 1200T", w / 2, gantryY - 1);
 
-      // Block Specification Text
-      ctx.fillStyle = "#ffffff";
+      // 3. Trolleys & Cable Hoists
+      const t1X = w / 2 - Math.max(80, w * 0.19);
+      const t2X = w / 2 + Math.max(80, w * 0.19);
+
+      // Trolley 1 (Main Hoist)
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(t1X - 22, gantryY + 8, 44, 16);
+      ctx.fillStyle = "#38bdf8";
       ctx.font = "bold 9px sans-serif";
-      ctx.fillText("HD SAMHO 820T BILGE BLOCK", -65, 3);
-      ctx.fillText(`ROTATION: ${(s.angle * 180 / Math.PI).toFixed(0)}°`, -35, 16);
+      ctx.fillText("주권 (H1)", t1X, gantryY + 20);
+
+      // Trolley 2 (Aux Hoist)
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(t2X - 22, gantryY + 8, 44, 16);
+      ctx.fillStyle = "#f97316";
+      ctx.fillText("보권 (H2)", t2X, gantryY + 20);
+
+      // Hook 1 & 2 Positions
+      const h1Pos = { x: t1X, y: stateRef.current.h1Y };
+      const h2Pos = { x: t2X, y: stateRef.current.h2Y };
+
+      // Wire 1 (Steel Wire Rope)
+      ctx.strokeStyle = stateRef.current.tension1 > 750 ? "#ef4444" : "#94a3b8";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(t1X, gantryY + 24);
+      ctx.lineTo(h1Pos.x, h1Pos.y);
+      ctx.stroke();
+
+      // Wire 2
+      ctx.strokeStyle = stateRef.current.tension2 > 750 ? "#ef4444" : "#94a3b8";
+      ctx.beginPath();
+      ctx.moveTo(t2X, gantryY + 24);
+      ctx.lineTo(h2Pos.x, h2Pos.y);
+      ctx.stroke();
+
+      // Hook Blocks
+      ctx.fillStyle = "#475569";
+      ctx.fillRect(h1Pos.x - 10, h1Pos.y - 12, 20, 12);
+      ctx.fillRect(h2Pos.x - 10, h2Pos.y - 12, 20, 12);
+
+      // 4. 900-Ton Curved Ship Hull Block
+      // Center of suspended block
+      const blockCenterX = (h1Pos.x + h2Pos.x) / 2;
+      const blockCenterY = (h1Pos.y + h2Pos.y) / 2 + 35;
+      const blockAngleRad = (stateRef.current.angle * Math.PI) / 180;
+
+      ctx.save();
+      ctx.translate(blockCenterX, blockCenterY);
+      ctx.rotate(blockAngleRad);
+
+      const blockW = 160;
+      const blockH = 50;
+
+      // Curved Hull Bottom Outer Plating (Shipyard primer red/brown)
+      ctx.fillStyle = "#991b1b"; // Primer Hull Red
+      ctx.beginPath();
+      ctx.roundRect(-blockW / 2, -blockH / 2, blockW, blockH, [0, 0, 20, 20]);
+      ctx.fill();
+      ctx.strokeStyle = "#f87171";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Internal T-Beam Stiffeners
+      ctx.strokeStyle = "#475569";
+      ctx.lineWidth = 2;
+      for (let sx = -blockW / 2 + 20; sx < blockW / 2; sx += 24) {
+        ctx.beginPath();
+        ctx.moveTo(sx, -blockH / 2);
+        ctx.lineTo(sx, blockH / 2 - 8);
+        ctx.stroke();
+      }
+
+      // Center of Gravity Marker (Yellow/Black hazard circle)
+      ctx.beginPath();
+      ctx.arc(0, 0, 9, 0, Math.PI * 2);
+      ctx.fillStyle = "#eab308";
+      ctx.fill();
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#000000";
+      ctx.font = "bold 8px sans-serif";
+      ctx.fillText("CG", 0, 3);
+
+      // 180° Target Landing Side Marker (Flange)
+      ctx.fillStyle = "#22c55e";
+      ctx.fillRect(-blockW / 2 + 10, -blockH / 2 - 4, blockW - 20, 4);
 
       ctx.restore();
 
-      // Rigging Slings connecting hooks to block lugs
-      ctx.strokeStyle = "#f8fafc";
-      ctx.lineWidth = 3;
+      // Slings connecting hooks to block attachment pad eyes
+      ctx.strokeStyle = "#e2e8f0";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(mainHookX, mainHookY + 27);
-      ctx.lineTo(blockCenterX - Math.cos(s.angle) * 70, blockCenterY - Math.sin(s.angle) * 70);
-      ctx.moveTo(auxHookX, auxHookY + 27);
-      ctx.lineTo(blockCenterX + Math.cos(s.angle) * 70, blockCenterY + Math.sin(s.angle) * 70);
+      ctx.moveTo(h1Pos.x, h1Pos.y);
+      ctx.lineTo(blockCenterX - 50, blockCenterY);
+      ctx.moveTo(h2Pos.x, h2Pos.y);
+      ctx.lineTo(blockCenterX + 50, blockCenterY);
       ctx.stroke();
 
-      // 7. Wind and Altitude HUD
+      // 5. Target Angle Compass Display
+      ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+      ctx.fillRect(w - 150, 60, 140, 70);
+      ctx.strokeStyle = "#334155";
+      ctx.strokeRect(w - 150, 60, 140, 70);
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("현재 반전 각도:", w - 140, 80);
+      ctx.fillStyle = Math.abs(stateRef.current.angle - 180) < 5 ? "#4ade80" : "#fbbf24";
+      ctx.font = "bold 18px monospace";
+      ctx.fillText(`${stateRef.current.angle.toFixed(1)}°`, w - 140, 105);
       ctx.fillStyle = "#38bdf8";
-      ctx.font = "bold 11px sans-serif";
-      ctx.fillText(`고도: ${s.altitude}m / 풍속: ${s.wind.toFixed(0)} kts`, 25, 45);
+      ctx.font = "9px sans-serif";
+      ctx.fillText("목표: 180.0° 완착", w - 140, 120);
+
+      ctx.restore(); // Restore DPR
 
       animId = requestAnimationFrame(render);
     };
 
     animId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animId);
-  }, [gameState]);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      ro.disconnect();
+    };
+  }, []);
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
-      {/* Top Telemetry Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
-            <ArrowLeftRight className="w-4 h-4 text-white" />
+    <div className="relative w-full h-full flex flex-col bg-slate-950 font-hd select-none overflow-hidden text-white">
+      {/* Header HUD */}
+      <div className="flex items-center justify-between px-3 py-2 bg-slate-900/95 border-b border-slate-800 shrink-0 z-10 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-orange-500/20 text-orange-400 rounded-lg border border-orange-500/30">
+            <ArrowLeftRight className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm sm:text-base text-white">900T 초대형 블록 턴오버</h3>
-              <span className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
-                phaseStep === "LIFT"
-                  ? "bg-sky-500/20 text-sky-400 border-sky-500/30"
-                  : phaseStep === "TURNOVER"
-                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse"
-                  : phaseStep === "STABILIZE"
-                  ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
-                  : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-              }`}>
-                {phaseStep === "LIFT"
-                  ? "1단계: 권상"
-                  : phaseStep === "TURNOVER"
-                  ? "2단계: 90° 반전"
-                  : phaseStep === "STABILIZE"
-                  ? "3단계: 진동 억제"
-                  : "4단계: 안착"}
+            <div className="text-xs font-black text-slate-100 flex items-center gap-1.5">
+              900T 블록 턴오버 (Turnover)
+              <span className="text-[10px] px-1.5 py-0.2 bg-orange-500/20 text-orange-300 rounded font-bold">
+                정밀 물리 연산
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-normal hidden sm:block">
-              주권·보권 이중 윈치로 820톤 곡블록을 180° 공중 반전시켜 트랜스포터에 안착시키세요.
-            </p>
+            <div className="text-[10px] text-slate-400">
+              주권·보권 와이어 텐션 밸런싱 & 180.0° 안전 반전
+            </div>
           </div>
         </div>
 
-        {/* Live Tension and Angle Gauges */}
-        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">반전각</span>
-            <span className="text-xs sm:text-sm font-bold text-amber-400 tabular-nums">{angleDeg}° / 180°</span>
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Tension H1 */}
+          <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700">
+            <span className="text-[10px] text-cyan-400 font-bold">H1:</span>
+            <span
+              className={`text-xs font-black font-mono ${
+                hoist1Tension > 750 ? "text-rose-400 animate-pulse" : "text-cyan-300"
+              }`}
+            >
+              {hoist1Tension}T
+            </span>
           </div>
 
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">주권/보권</span>
-            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">{mainTension}T / {auxTension}T</span>
+          {/* Tension H2 */}
+          <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700">
+            <span className="text-[10px] text-orange-400 font-bold">H2:</span>
+            <span
+              className={`text-xs font-black font-mono ${
+                hoist2Tension > 750 ? "text-rose-400 animate-pulse" : "text-orange-300"
+              }`}
+            >
+              {hoist2Tension}T
+            </span>
           </div>
 
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">인양 고도</span>
-            <span className="text-xs sm:text-sm font-bold text-emerald-400 tabular-nums">{altitudeM}m</span>
+          {/* Angle */}
+          <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700">
+            <span className="text-[10px] text-slate-400 font-bold">각도:</span>
+            <span className="text-xs font-black text-amber-300 font-mono">{currentAngle}°</span>
           </div>
 
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">공정 스코어</span>
-            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">{score.toLocaleString()}점</span>
+          {/* Time Left */}
+          <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700">
+            <span className="text-[10px] text-slate-400 font-bold">시간:</span>
+            <span className={`text-xs font-black ${timeLeft <= 10 ? "text-rose-400" : "text-emerald-300"}`}>
+              {timeLeft}s
+            </span>
           </div>
 
+          {/* Mute */}
           <button
             onClick={toggleSound}
-            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
-            title={isMuted ? "소리 켜기" : "음소거"}
+            className="p-1 text-slate-400 hover:text-white transition-colors"
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {/* Main Canvas Viewport */}
-      <div className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[310px] sm:h-[340px] md:h-[360px] flex items-center justify-center">
-        <canvas ref={canvasRef} className="w-full h-full block" width={640} height={420} />
+      {/* Main Canvas Container (100% Flex, responsive fit) */}
+      <div ref={mountRef} className="relative flex-1 w-full min-h-0 overflow-hidden bg-slate-900">
+        <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />
 
-        {/* Hazard Alarm Toast */}
-        {alarmText && gameState === "PLAYING" && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-rose-950/90 border border-rose-500 text-rose-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg animate-bounce z-10">
-            <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-            {alarmText}
-          </div>
-        )}
-
-        {/* Start Overlay */}
+        {/* READY Overlay */}
         {gameState === "READY" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in duration-200">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-2.5 text-amber-400 shadow-lg shadow-amber-500/10">
-              <ArrowLeftRight className="w-6 h-6" />
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20">
+            <div className="w-14 h-14 rounded-2xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center mb-3 text-orange-400 shadow-lg">
+              <ArrowLeftRight className="w-8 h-8" />
             </div>
-            <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">900T 초대형 블록 공중 턴오버</h2>
-            <p className="text-slate-300 text-xs sm:text-[13px] max-w-md mb-3.5 leading-relaxed">
-              <strong>W / S (주권)</strong>와 <strong>▲ / ▼ (보권)</strong>으로 블록을 15m 이상 띄운 후,<br />
-              보권을 상승시켜 <strong>180° 공중 반전</strong>하여 하단 트랜스포터에 안전 안착시키세요.
+            <h3 className="text-lg sm:text-xl font-black text-white mb-2">
+              900T 대형 메가블록 공중 반전(턴오버) 작전
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-md mb-4 leading-relaxed">
+              조선소 골리앗 크레인의 주권(H1)과 보권(H2) 호이스트를 정밀 조작하여 거대 900톤 블록을
+              공중에서 180.0° 뒤집은 후, 도크 받침대에 부드럽게 안착시키세요.
+              와이어 장력이 750톤을 초과하면 과부하 파단 위험이 발생합니다!
             </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400 mb-6 bg-slate-900/90 px-4 py-2.5 rounded-xl border border-slate-800">
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 bg-slate-800 rounded font-mono font-bold text-cyan-300">
+                  Q / A
+                </span>
+                <span>주권(H1) 상승/하강</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 bg-slate-800 rounded font-mono font-bold text-orange-300">
+                  W / S
+                </span>
+                <span>보권(H2) 상승/하강</span>
+              </div>
+            </div>
+
             <button
               onClick={startGame}
-              className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white font-black text-sm rounded-xl shadow-lg shadow-orange-600/30 transition-all flex items-center gap-2"
             >
               <Play className="w-4 h-4 fill-white" />
-              턴오버 크레인 가동
+              턴오버 권상 시작
             </button>
           </div>
         )}
 
-        {/* Game Over / Success Overlay */}
-        {gameState === "GAMEOVER" && (
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in zoom-in-95 duration-200">
-            {stateRef.current.isCompleted ? (
-              <>
-                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-2 text-emerald-400">
-                  <CheckCircle2 className="w-6 h-6" />
-                </div>
-                <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">
-                  무사고 900T 턴오버 완료!
-                </h3>
-                <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
-                  하중 사점 통과와 횡진동 감쇠를 완벽히 통제하여 안전 탑재되었습니다.
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-2 text-rose-400">
-                  <AlertTriangle className="w-6 h-6" />
-                </div>
-                <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">와이어 과하중 / 블록 충돌</h3>
-                <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm">
-                  단일 와이어 허용 하중 초과 또는 진동으로 비상 정지되었습니다.
-                </p>
-              </>
-            )}
-
-            <div className="bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-center mb-3.5 min-w-[180px]">
-              <span className="text-[10px] text-slate-400 block mb-0.5 font-medium">최종 공정 스코어</span>
-              <span className="text-xl sm:text-2xl font-bold text-amber-400 tabular-nums">{score.toLocaleString()}점</span>
+        {/* SUCCESS Overlay */}
+        {gameState === "SUCCESS" && (
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center z-20 animate-in fade-in zoom-in-95">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mb-2 text-emerald-400">
+              <ShieldCheck className="w-8 h-8" />
             </div>
+            <h3 className="text-lg sm:text-xl font-black text-white mb-1">
+              턴오버 안착 대성공!
+            </h3>
+            <div className="text-2xl sm:text-3xl font-black text-amber-300 mb-2">
+              최종 점수: {score.toLocaleString()}점
+            </div>
+            <p className="text-xs text-slate-300 max-w-sm mb-5">
+              180.0° 무충격 정밀 안착 및 장력 분산 성공! 월간 랭킹에 최고 기록이 반영되었습니다.
+            </p>
+
             <button
               onClick={startGame}
-              className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-xs sm:text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white font-black text-sm rounded-xl shadow-lg shadow-orange-600/30 transition-all flex items-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
-              턴오버 재도전
+              다시 도전하기
+            </button>
+          </div>
+        )}
+
+        {/* GAMEOVER Overlay */}
+        {gameState === "GAMEOVER" && (
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center z-20 animate-in fade-in zoom-in-95">
+            <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center mb-2 text-rose-400">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg sm:text-xl font-black text-white mb-1">
+              와이어 과부하 / 시간 초과
+            </h3>
+            <div className="text-2xl sm:text-3xl font-black text-amber-300 mb-2">
+              점수: {score.toLocaleString()}점
+            </div>
+            <p className="text-xs text-slate-300 max-w-sm mb-5">
+              호이스트 장력이 급격히 쏠리거나 시간이 초과되었습니다. 주권과 보권의 고도차를 완만하게 조절하세요.
+            </p>
+
+            <button
+              onClick={startGame}
+              className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 active:scale-95 text-white font-black text-sm rounded-xl shadow-lg shadow-orange-600/30 transition-all flex items-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              재도전하기
             </button>
           </div>
         )}
       </div>
 
-      {/* Crane Dual Hoist & Trolley Control Deck */}
-      <div className="w-full mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
-        {/* Main Hoist Control */}
-        <div className="bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-lg flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold text-sky-400 block">주권 (Main)</span>
-            <span className="text-[10px] text-slate-400">W / S</span>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onMouseDown={() => (stateRef.current.keys.mainUp = true)}
-              onMouseUp={() => (stateRef.current.keys.mainUp = false)}
-              className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-lg active:scale-95"
-            >
-              ▲ 권상
-            </button>
-            <button
-              onMouseDown={() => (stateRef.current.keys.mainDown = true)}
-              onMouseUp={() => (stateRef.current.keys.mainDown = false)}
-              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg active:scale-95"
-            >
-              ▼ 권하
-            </button>
-          </div>
+      {/* On-screen Dual Hoist Control Panel */}
+      <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-t border-slate-800 shrink-0 z-10 gap-2">
+        {/* Hoist 1 Controls */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-black text-cyan-400 mr-1 hidden sm:inline">
+            주권 (H1)
+          </span>
+          <button
+            onPointerDown={() => (controlRef.current.h1Up = true)}
+            onPointerUp={() => (controlRef.current.h1Up = false)}
+            onPointerLeave={() => (controlRef.current.h1Up = false)}
+            className="w-12 h-10 bg-slate-800 active:bg-cyan-600 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center justify-center text-cyan-300 active:scale-95 transition-transform"
+            title="주권 상승 (Q)"
+          >
+            <ArrowUp className="w-5 h-5" />
+          </button>
+          <button
+            onPointerDown={() => (controlRef.current.h1Down = true)}
+            onPointerUp={() => (controlRef.current.h1Down = false)}
+            onPointerLeave={() => (controlRef.current.h1Down = false)}
+            className="w-12 h-10 bg-slate-800 active:bg-cyan-600 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center justify-center text-cyan-300 active:scale-95 transition-transform"
+            title="주권 하강 (A)"
+          >
+            <ArrowDown className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Aux Hoist Control (Crucial for Turnover Inversion!) */}
-        <div className="bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-lg flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold text-orange-400 block">보권 (Aux) 반전</span>
-            <span className="text-[10px] text-slate-400">↑ / ↓</span>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onMouseDown={() => (stateRef.current.keys.auxUp = true)}
-              onMouseUp={() => (stateRef.current.keys.auxUp = false)}
-              className="px-2.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-lg active:scale-95 shadow-md shadow-orange-500/20"
-            >
-              ▲ 반전
-            </button>
-            <button
-              onMouseDown={() => (stateRef.current.keys.auxDown = true)}
-              onMouseUp={() => (stateRef.current.keys.auxDown = false)}
-              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg active:scale-95"
-            >
-              ▼ 하강
-            </button>
-          </div>
+        <div className="text-center text-[11px] text-slate-400 hidden md:block">
+          키보드 [Q/A] 주권 상승·하강 · [W/S] 보권 상승·하강
         </div>
 
-        {/* Trolley Sway Dampener */}
-        <div className="bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-lg flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold text-amber-400 block">횡진동 제어</span>
-            <span className="text-[10px] text-slate-400">A / D</span>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onMouseDown={() => (stateRef.current.keys.trolleyL = true)}
-              onMouseUp={() => (stateRef.current.keys.trolleyL = false)}
-              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg active:scale-95"
-            >
-              ◀ 좌
-            </button>
-            <button
-              onMouseDown={() => (stateRef.current.keys.trolleyR = true)}
-              onMouseUp={() => (stateRef.current.keys.trolleyR = false)}
-              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg active:scale-95"
-            >
-              우 ▶
-            </button>
-          </div>
+        {/* Hoist 2 Controls */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-black text-orange-400 mr-1 hidden sm:inline">
+            보권 (H2)
+          </span>
+          <button
+            onPointerDown={() => (controlRef.current.h2Up = true)}
+            onPointerUp={() => (controlRef.current.h2Up = false)}
+            onPointerLeave={() => (controlRef.current.h2Up = false)}
+            className="w-12 h-10 bg-slate-800 active:bg-orange-600 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center justify-center text-orange-300 active:scale-95 transition-transform"
+            title="보권 상승 (W)"
+          >
+            <ArrowUp className="w-5 h-5" />
+          </button>
+          <button
+            onPointerDown={() => (controlRef.current.h2Down = true)}
+            onPointerUp={() => (controlRef.current.h2Down = false)}
+            onPointerLeave={() => (controlRef.current.h2Down = false)}
+            className="w-12 h-10 bg-slate-800 active:bg-orange-600 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center justify-center text-orange-300 active:scale-95 transition-transform"
+            title="보권 하강 (S)"
+          >
+            <ArrowDown className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </div>

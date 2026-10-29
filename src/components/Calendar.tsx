@@ -255,7 +255,7 @@ export default function Calendar({
   return (
     <div className="bg-white rounded-none sm:rounded-[28px] sm:shadow-sm flex-1 flex flex-col overflow-hidden min-h-0 border-b sm:border border-gray-300 border-x-0">
       {" "}
-      <div className="flex flex-col md:grid md:grid-cols-[1fr_auto_1fr] gap-2 md:gap-4 items-center px-3 sm:px-4 md:px-5 border-b border-gray-200 h-[58px] shrink-0 bg-white">
+      <div className="flex flex-col md:grid md:grid-cols-[minmax(0,1fr)_auto_auto] gap-2 md:gap-3 lg:gap-4 items-center px-3 sm:px-4 md:px-5 border-b border-gray-200 h-[58px] shrink-0 bg-white">
         <div
           ref={containerRef}
           className="flex justify-start items-center gap-2 sm:gap-3 min-w-0 order-2 md:order-1 w-full md:w-auto overflow-hidden"
@@ -335,11 +335,11 @@ export default function Calendar({
             )}
           </div>
         </div>
-        <div className="hidden md:flex items-center justify-end gap-1.5 lg:gap-2 xl:gap-2.5 order-3 shrink-0 flex-nowrap whitespace-nowrap min-w-max">
+        <div className="hidden md:flex items-center justify-end gap-1 sm:gap-1.5 lg:gap-2 xl:gap-2.5 order-3 shrink-0 flex-nowrap whitespace-nowrap min-w-max">
           {TEAMS.filter((t) => t.id !== "t_notice").map((team) => (
             <span
               key={team.id}
-              className="inline-flex items-center gap-1 sm:gap-1.5 text-[11px] lg:text-[11.5px] xl:text-[12px] font-bold text-[#48484A] whitespace-nowrap shrink-0 select-none hover:opacity-85 transition-opacity"
+              className="inline-flex items-center gap-1 sm:gap-1.5 text-[10.5px] lg:text-[11px] xl:text-[12px] font-bold text-[#48484A] whitespace-nowrap shrink-0 select-none hover:opacity-85 transition-opacity"
             >
               <span
                 className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 shadow-xs"

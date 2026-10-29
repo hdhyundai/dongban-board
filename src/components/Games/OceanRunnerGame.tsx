@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Play, RotateCcw, Volume2, VolumeX, Shield, Zap, Compass } from "lucide-react";
+import { Play, RotateCcw, Volume2, VolumeX, Compass, Zap, Gauge, ArrowLeft, ArrowRight, Award, ShieldAlert } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
 
@@ -8,66 +8,63 @@ interface OceanRunnerGameProps {
 }
 
 interface Obstacle {
+  id: number;
   x: number;
-  y: number;
+  y: number; // Y moves downward in top-down scrolling
   width: number;
   height: number;
-  type: "reef" | "buoy" | "driftwood";
-  speed: number;
+  type: "reef" | "container" | "gate" | "fuel";
+  passed: boolean;
+  collected?: boolean;
 }
 
-interface Collectible {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  type: "battery" | "anchor" | "shield" | "turbo";
-  speed: number;
-}
-
-interface WaterParticle {
+interface WakeParticle {
   x: number;
   y: number;
   vx: number;
   vy: number;
-  size: number;
+  radius: number;
   alpha: number;
-  life: number;
 }
 
 export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
+  const mountRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const [gameState, setGameState] = useState<"READY" | "PLAYING" | "GAMEOVER">("READY");
   const [score, setScore] = useState(0);
-  const [distance, setDistance] = useState(0);
-  const [battery, setBattery] = useState(100);
-  const [hasShield, setHasShield] = useState(false);
-  const [isTurbo, setIsTurbo] = useState(false);
-  const [gameOverReason, setGameOverReason] = useState("");
+  const [speedKnots, setSpeedKnots] = useState(18);
+  const [distanceMeters, setDistanceMeters] = useState(0);
+  const [shipHullLife, setShipHullLife] = useState(3);
   const [isMuted, setIsMuted] = useState(gameAudio.getMuted());
+  const [ecoBoostTime, setEcoBoostTime] = useState(0);
 
-  const stateRef = useRef({
-    playerX: 250,
-    playerY: 420,
-    targetX: 250,
-    playerWidth: 42,
-    playerHeight: 74,
-    speed: 5,
-    distance: 0,
-    battery: 100,
-    score: 0,
-    hasShield: false,
-    turboTimer: 0,
-    obstacles: [] as Obstacle[],
-    collectibles: [] as Collectible[],
-    wakeParticles: [] as WaterParticle[],
-    shake: 0,
-    width: 540,
-    height: 520,
-    lastSpawn: 0,
+  const keysRef = useRef<{ left: boolean; right: boolean; boost: boolean }>({
+    left: false,
+    right: false,
+    boost: false,
   });
 
-  const animFrameRef = useRef<number | null>(null);
+  const stateRef = useRef({
+    isPlaying: false,
+    score: 0,
+    distance: 0,
+    speed: 18, // knots
+    shipX: 400,
+    shipTargetX: 400,
+    shipY: 420,
+    shipAngle: 0,
+    obstacles: [] as Obstacle[],
+    nextObstacleY: -100,
+    wakeParticles: [] as WakeParticle[],
+    hullLife: 3,
+    ecoBoost: 0,
+    combo: 0,
+    screenW: 800,
+    screenH: 520,
+    waterOffset: 0,
+    lastTime: performance.now(),
+  });
 
   const toggleSound = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,562 +73,621 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
   };
 
   const startGame = () => {
-    const s = stateRef.current;
-    s.playerX = s.width / 2;
-    s.targetX = s.width / 2;
-    s.playerY = s.height - 80;
-    s.speed = 5;
-    s.distance = 0;
-    s.score = 0;
-    s.battery = 100;
-    s.hasShield = false;
-    s.turboTimer = 0;
-    s.obstacles = [];
-    s.collectibles = [];
-    s.wakeParticles = [];
-    s.shake = 0;
-    s.lastSpawn = Date.now();
+    stateRef.current.isPlaying = true;
+    stateRef.current.score = 0;
+    stateRef.current.distance = 0;
+    stateRef.current.speed = 18;
+    stateRef.current.shipX = stateRef.current.screenW / 2;
+    stateRef.current.shipTargetX = stateRef.current.screenW / 2;
+    stateRef.current.shipY = stateRef.current.screenH - 100;
+    stateRef.current.shipAngle = 0;
+    stateRef.current.obstacles = [];
+    stateRef.current.nextObstacleY = -120;
+    stateRef.current.wakeParticles = [];
+    stateRef.current.hullLife = 3;
+    stateRef.current.ecoBoost = 0;
+    stateRef.current.combo = 0;
+    stateRef.current.lastTime = performance.now();
 
-    setScore(0);
-    setDistance(0);
-    setBattery(100);
-    setHasShield(false);
-    setIsTurbo(false);
-    setGameOverReason("");
     setGameState("PLAYING");
-    gameAudio.playClick();
+    setScore(0);
+    setDistanceMeters(0);
+    setSpeedKnots(18);
+    setShipHullLife(3);
+    setEcoBoostTime(0);
+
+    gameAudio.playStart();
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (gameState !== "PLAYING") return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * stateRef.current.width;
-    stateRef.current.targetX = Math.max(30, Math.min(stateRef.current.width - 30, x));
+  const handleGameOver = () => {
+    if (!stateRef.current.isPlaying) return;
+    stateRef.current.isPlaying = false;
+    const finalScore = Math.floor(stateRef.current.score);
+
+    setGameState("GAMEOVER");
+    setScore(finalScore);
+
+    if (finalScore >= 1200) {
+      gameAudio.playVictory();
+      confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+    } else {
+      gameAudio.playFailure();
+    }
+
+    onFinish(finalScore);
   };
 
-  // Keyboard navigation
+  // Keyboard controls
   useEffect(() => {
-    const keys: Record<string, boolean> = {};
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      keys[e.key] = true;
-      if (e.code === "Space" && (gameState === "READY" || gameState === "GAMEOVER")) {
-        startGame();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keysRef.current.left = true;
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keysRef.current.right = true;
+      if (e.key === " " || e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+        keysRef.current.boost = true;
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keysRef.current.left = false;
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keysRef.current.right = false;
+      if (e.key === " " || e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+        keysRef.current.boost = false;
       }
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keys[e.key] = false;
-    };
-
-    const interval = setInterval(() => {
-      if (gameState !== "PLAYING") return;
-      const s = stateRef.current;
-      const step = 9;
-      if (keys["ArrowLeft"] || keys["a"] || keys["A"]) {
-        s.targetX = Math.max(30, s.targetX - step);
-      }
-      if (keys["ArrowRight"] || keys["d"] || keys["D"]) {
-        s.targetX = Math.min(s.width - 30, s.targetX + step);
-      }
-    }, 16);
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-      clearInterval(interval);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
     };
-  }, [gameState]);
+  }, []);
 
-  // Main game loop
+  // Main 2D Canvas Loop & Resize
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const container = mountRef.current;
+    if (!canvas || !container) return;
 
-    let running = true;
+    let animId = 0;
 
-    const render = () => {
-      if (!running) return;
-      const s = stateRef.current;
+    const resize = () => {
+      const rect = container.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(320, Math.floor(rect.width));
+      const h = Math.max(280, Math.floor(rect.height));
 
-      if (gameState === "PLAYING") {
-        // Player movement smoothing
-        s.playerX += (s.targetX - s.playerX) * 0.22;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
 
-        // Drain battery over time (prevents idling)
-        s.battery = Math.max(0, s.battery - 0.05);
-        setBattery(Math.round(s.battery));
-
-        if (s.battery <= 0) {
-          gameAudio.playDrop();
-          setGameOverReason("친환경 배터리 방전으로 추진력 상실!");
-          setGameState("GAMEOVER");
-          onFinish(s.score);
-          return;
-        }
-
-        // Turbo handling
-        const currentSpeed = s.turboTimer > 0 ? s.speed * 1.8 : s.speed;
-        if (s.turboTimer > 0) {
-          s.turboTimer--;
-          if (s.turboTimer === 0) setIsTurbo(false);
-        }
-
-        s.distance += Math.round(currentSpeed * 0.3);
-        s.score += s.turboTimer > 0 ? 3 : 1;
-        setDistance(s.distance);
-        setScore(s.score);
-
-        // Gradually ramp baseline speed with distance
-        s.speed = Math.min(11, 5 + s.distance * 0.003);
-
-        // Spawn obstacles & collectibles
-        const now = Date.now();
-        if (now - s.lastSpawn > Math.max(450, 1100 - s.speed * 60)) {
-          s.lastSpawn = now;
-          // Spawn lane (occasionally target near player position to prevent stationary play)
-          const laneX = Math.random() < 0.4
-            ? Math.max(40, Math.min(s.width - 40, s.playerX + (Math.random() - 0.5) * 60))
-            : Math.random() * (s.width - 100) + 50;
-
-          if (Math.random() < 0.65) {
-            // Spawn obstacle
-            const types: ("reef" | "buoy" | "driftwood")[] = ["reef", "buoy", "driftwood"];
-            const t = types[Math.floor(Math.random() * types.length)];
-            const width = t === "reef" ? 44 : t === "driftwood" ? 48 : 28;
-            const height = t === "reef" ? 34 : t === "driftwood" ? 22 : 28;
-            s.obstacles.push({
-              x: laneX,
-              y: -50,
-              width,
-              height,
-              type: t,
-              speed: currentSpeed,
-            });
-          } else {
-            // Spawn item
-            const roll = Math.random();
-            const itemType = roll < 0.5 ? "battery" : roll < 0.8 ? "anchor" : roll < 0.92 ? "shield" : "turbo";
-            s.collectibles.push({
-              x: laneX,
-              y: -40,
-              width: 28,
-              height: 28,
-              type: itemType,
-              speed: currentSpeed,
-            });
-          }
-        }
-
-        // Spawn ship wake particles
-        s.wakeParticles.push({
-          x: s.playerX - 8 + (Math.random() - 0.5) * 6,
-          y: s.playerY + s.playerHeight / 2 + 8,
-          vx: -Math.random() * 1.5 - 0.5,
-          vy: currentSpeed * 0.5,
-          size: Math.random() * 5 + 3,
-          alpha: 0.8,
-          life: 0,
-        });
-        s.wakeParticles.push({
-          x: s.playerX + 8 + (Math.random() - 0.5) * 6,
-          y: s.playerY + s.playerHeight / 2 + 8,
-          vx: Math.random() * 1.5 + 0.5,
-          vy: currentSpeed * 0.5,
-          size: Math.random() * 5 + 3,
-          alpha: 0.8,
-          life: 0,
-        });
+      stateRef.current.screenW = w;
+      stateRef.current.screenH = h;
+      if (!stateRef.current.isPlaying) {
+        stateRef.current.shipX = w / 2;
+        stateRef.current.shipTargetX = w / 2;
+        stateRef.current.shipY = h - 90;
       }
+    };
 
-      // Handle shake
-      if (s.shake > 0) {
-        s.shake *= 0.85;
-        if (s.shake < 0.2) s.shake = 0;
-      }
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(container);
+    resize();
 
+    const spawnObstacle = () => {
+      const w = stateRef.current.screenW;
+      const types: Array<"reef" | "container" | "gate" | "fuel"> = ["container", "reef", "gate", "fuel"];
+      const roll = Math.random();
+      let type: "reef" | "container" | "gate" | "fuel" = "container";
+      if (roll < 0.35) type = "container";
+      else if (roll < 0.65) type = "reef";
+      else if (roll < 0.85) type = "gate";
+      else type = "fuel";
+
+      const margin = 70;
+      const x = margin + Math.random() * (w - margin * 2);
+
+      stateRef.current.obstacles.push({
+        id: Date.now() + Math.random(),
+        x,
+        y: -60,
+        width: type === "gate" ? 140 : type === "fuel" ? 36 : 48,
+        height: type === "gate" ? 24 : type === "fuel" ? 36 : 48,
+        type,
+        passed: false,
+        collected: false,
+      });
+
+      // Frequency scales with speed
+      const gap = Math.max(140, 240 - stateRef.current.speed * 3);
+      stateRef.current.nextObstacleY = -gap;
+    };
+
+    const render = (time: number) => {
+      const dt = Math.min((time - stateRef.current.lastTime) / 1000, 0.1);
+      stateRef.current.lastTime = time;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       ctx.save();
-      ctx.clearRect(0, 0, s.width, s.height);
+      ctx.scale(dpr, dpr);
 
-      if (s.shake > 0) {
-        ctx.translate((Math.random() - 0.5) * s.shake, (Math.random() - 0.5) * s.shake);
-      }
+      const w = stateRef.current.screenW;
+      const h = stateRef.current.screenH;
 
-      // --- Deep Ocean Background with Flowing Water Waves ---
-      const oceanGrad = ctx.createLinearGradient(0, 0, 0, s.height);
-      oceanGrad.addColorStop(0, "#002B49");
-      oceanGrad.addColorStop(0.5, "#004B7A");
-      oceanGrad.addColorStop(1, "#006FA6");
-      ctx.fillStyle = oceanGrad;
-      ctx.fillRect(0, 0, s.width, s.height);
-
-      // Water flow streaks
-      const offset = (Date.now() * 0.3) % 40;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
-      for (let y = -40 + offset; y < s.height; y += 40) {
-        for (let x = 20; x < s.width; x += 90) {
-          ctx.fillRect(x + Math.sin(y * 0.05) * 15, y, 40, 2);
-        }
-      }
-
-      // Wake particles
-      for (let i = s.wakeParticles.length - 1; i >= 0; i--) {
-        const p = s.wakeParticles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.size *= 1.02;
-        p.alpha -= 0.025;
-
-        ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, p.alpha)})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (p.alpha <= 0) s.wakeParticles.splice(i, 1);
-      }
-
-      // --- Draw Obstacles & Check Collisions ---
-      for (let i = s.obstacles.length - 1; i >= 0; i--) {
-        const obs = s.obstacles[i];
-        if (gameState === "PLAYING") {
-          obs.y += s.turboTimer > 0 ? s.speed * 1.8 : s.speed;
-        }
-
-        // Draw obstacle
-        if (obs.type === "reef") {
-          ctx.fillStyle = "#374151";
-          ctx.beginPath();
-          ctx.moveTo(obs.x, obs.y + obs.height);
-          ctx.lineTo(obs.x + obs.width / 2, obs.y);
-          ctx.lineTo(obs.x + obs.width, obs.y + obs.height);
-          ctx.closePath();
-          ctx.fill();
-          // Rock highlights
-          ctx.fillStyle = "#6B7280";
-          ctx.fillRect(obs.x + 8, obs.y + 12, 10, 8);
-        } else if (obs.type === "buoy") {
-          ctx.fillStyle = "#EF4444";
-          ctx.beginPath();
-          ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2, obs.width / 2, 0, Math.PI * 2);
-          ctx.fill();
-          // Flashing beacon light
-          ctx.fillStyle = (Date.now() % 600 < 300) ? "#FBBF24" : "#FFFFFF";
-          ctx.beginPath();
-          ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2 - 4, 4, 0, Math.PI * 2);
-          ctx.fill();
+      // Update gameplay physics if PLAYING
+      if (stateRef.current.isPlaying) {
+        // Boost mechanic
+        if (keysRef.current.boost) {
+          stateRef.current.ecoBoost = Math.min(5, stateRef.current.ecoBoost + dt * 2);
         } else {
-          // Driftwood
-          ctx.fillStyle = "#78350F";
-          ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-          ctx.fillStyle = "#92400E";
-          ctx.fillRect(obs.x + 6, obs.y + 3, obs.width - 12, obs.height - 6);
+          stateRef.current.ecoBoost = Math.max(0, stateRef.current.ecoBoost - dt * 2.5);
         }
 
-        // Collision Check with Ship
-        if (gameState === "PLAYING") {
-          const hit =
-            Math.abs((obs.x + obs.width / 2) - s.playerX) < (obs.width / 2 + s.playerWidth / 2 - 4) &&
-            Math.abs((obs.y + obs.height / 2) - s.playerY) < (obs.height / 2 + s.playerHeight / 2 - 6);
+        const targetSpeed = 16 + (stateRef.current.ecoBoost > 0 ? 12 : 0) + (stateRef.current.distance / 1200);
+        stateRef.current.speed += (targetSpeed - stateRef.current.speed) * dt * 2;
+        const currentSpeed = stateRef.current.speed;
 
-          if (hit) {
-            if (s.turboTimer > 0) {
-              // Smashes through obstacle in turbo mode!
-              s.obstacles.splice(i, 1);
-              s.score += 100;
-              gameAudio.playWhack(true);
-              continue;
-            } else if (s.hasShield) {
-              // Absorbed by shield!
-              s.hasShield = false;
-              setHasShield(false);
-              s.obstacles.splice(i, 1);
-              s.shake = 10;
-              gameAudio.playWhack(false);
-              continue;
-            } else {
-              // Game Over Crash!
-              s.shake = 20;
-              gameAudio.playBomb();
-              setGameState("GAMEOVER");
-              onFinish(s.score);
-              if (s.score >= 1500) {
-                confetti({ particleCount: 70, spread: 80 });
+        // Steering
+        const steerSpeed = (180 + currentSpeed * 4) * dt;
+        let targetAngle = 0;
+        if (keysRef.current.left) {
+          stateRef.current.shipX -= steerSpeed;
+          targetAngle = -0.16;
+        }
+        if (keysRef.current.right) {
+          stateRef.current.shipX += steerSpeed;
+          targetAngle = 0.16;
+        }
+
+        stateRef.current.shipAngle += (targetAngle - stateRef.current.shipAngle) * dt * 10;
+        stateRef.current.shipX = Math.max(45, Math.min(w - 45, stateRef.current.shipX));
+        stateRef.current.shipY = h - 90;
+
+        // Forward motion
+        const scrollDist = currentSpeed * 18 * dt;
+        stateRef.current.waterOffset = (stateRef.current.waterOffset + scrollDist) % 80;
+        stateRef.current.distance += scrollDist * 0.4;
+
+        // Wake particles
+        if (Math.random() < 0.7) {
+          stateRef.current.wakeParticles.push({
+            x: stateRef.current.shipX + (Math.random() - 0.5) * 12,
+            y: stateRef.current.shipY + 36,
+            vx: (Math.random() - 0.5) * 15,
+            vy: scrollDist * 0.4,
+            radius: 3 + Math.random() * 4,
+            alpha: 0.8,
+          });
+        }
+
+        // Spawn obstacles
+        stateRef.current.nextObstacleY += scrollDist;
+        if (stateRef.current.nextObstacleY >= 0) {
+          spawnObstacle();
+        }
+
+        // Update obstacles & collisions
+        const shipBox = {
+          x: stateRef.current.shipX - 18,
+          y: stateRef.current.shipY - 32,
+          w: 36,
+          h: 68,
+        };
+
+        const activeObstacles: Obstacle[] = [];
+        for (const obs of stateRef.current.obstacles) {
+          obs.y += scrollDist;
+
+          // Gate passing logic
+          if (obs.type === "gate" && !obs.passed && obs.y > shipBox.y) {
+            obs.passed = true;
+            const distToCenter = Math.abs(stateRef.current.shipX - obs.x);
+            if (distToCenter < obs.width / 2) {
+              // Scored gate!
+              stateRef.current.combo++;
+              const pts = 250 + stateRef.current.combo * 50;
+              stateRef.current.score += pts;
+              gameAudio.playCombo(stateRef.current.combo);
+            }
+          }
+
+          // Fuel collection
+          if (obs.type === "fuel" && !obs.collected) {
+            const dist = Math.hypot(stateRef.current.shipX - obs.x, stateRef.current.shipY - obs.y);
+            if (dist < 42) {
+              obs.collected = true;
+              stateRef.current.score += 200;
+              stateRef.current.ecoBoost = 4;
+              gameAudio.playPop();
+            }
+          }
+
+          // Obstacle collision (reef / container)
+          if ((obs.type === "container" || obs.type === "reef") && !obs.passed) {
+            const collision =
+              shipBox.x < obs.x + obs.width / 2 &&
+              shipBox.x + shipBox.w > obs.x - obs.width / 2 &&
+              shipBox.y < obs.y + obs.height / 2 &&
+              shipBox.y + shipBox.h > obs.y - obs.height / 2;
+
+            if (collision) {
+              obs.passed = true;
+              stateRef.current.hullLife -= 1;
+              stateRef.current.speed = Math.max(10, stateRef.current.speed - 8);
+              stateRef.current.combo = 0;
+              gameAudio.playError();
+
+              if (stateRef.current.hullLife <= 0) {
+                handleGameOver();
+                break;
               }
-              break;
             }
           }
-        }
 
-        // Remove offscreen
-        if (obs.y > s.height + 50) {
-          s.obstacles.splice(i, 1);
-        }
-      }
-
-      // --- Draw Collectibles & Check Pickups ---
-      for (let i = s.collectibles.length - 1; i >= 0; i--) {
-        const item = s.collectibles[i];
-        if (gameState === "PLAYING") {
-          item.y += s.turboTimer > 0 ? s.speed * 1.8 : s.speed;
-        }
-
-        ctx.save();
-        ctx.translate(item.x + item.width / 2, item.y + item.height / 2);
-
-        if (item.type === "battery") {
-          // Green Eco Battery Core
-          ctx.fillStyle = "#10B981";
-          ctx.beginPath();
-          ctx.roundRect(-10, -12, 20, 24, [4]);
-          ctx.fill();
-          ctx.fillStyle = "#FFFFFF";
-          ctx.font = "bold 13px sans-serif";
-          ctx.fillText("⚡", -6, 4);
-        } else if (item.type === "anchor") {
-          // Golden Anchor
-          ctx.fillStyle = "#F59E0B";
-          ctx.beginPath();
-          ctx.arc(0, 0, 14, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "#FFFFFF";
-          ctx.font = "bold 13px sans-serif";
-          ctx.fillText("⚓", -7, 4);
-        } else if (item.type === "shield") {
-          // Blue Shield
-          ctx.fillStyle = "#3B82F6";
-          ctx.beginPath();
-          ctx.arc(0, 0, 14, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "#FFFFFF";
-          ctx.font = "bold 13px sans-serif";
-          ctx.fillText("🛡️", -7, 4);
-        } else {
-          // Red Turbo Booster
-          ctx.fillStyle = "#EF4444";
-          ctx.beginPath();
-          ctx.arc(0, 0, 14, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "#FFFFFF";
-          ctx.font = "bold 13px sans-serif";
-          ctx.fillText("🚀", -7, 4);
-        }
-        ctx.restore();
-
-        // Pickup detection
-        if (gameState === "PLAYING") {
-          const picked =
-            Math.abs((item.x + item.width / 2) - s.playerX) < (item.width / 2 + s.playerWidth / 2 + 6) &&
-            Math.abs((item.y + item.height / 2) - s.playerY) < (item.height / 2 + s.playerHeight / 2 + 6);
-
-          if (picked) {
-            if (item.type === "battery") {
-              s.score += 50;
-              s.battery = Math.min(100, s.battery + 28);
-              setBattery(Math.round(s.battery));
-              gameAudio.playPickup();
-            } else if (item.type === "anchor") {
-              s.score += 150;
-              gameAudio.playPerfect(3);
-            } else if (item.type === "shield") {
-              s.hasShield = true;
-              setHasShield(true);
-              gameAudio.playPowerup();
-            } else if (item.type === "turbo") {
-              s.turboTimer = 200; // ~3.5 seconds
-              setIsTurbo(true);
-              gameAudio.playPowerup();
-            }
-            s.collectibles.splice(i, 1);
-            continue;
+          if (obs.y < h + 100 && !obs.collected) {
+            activeObstacles.push(obs);
           }
         }
+        stateRef.current.obstacles = activeObstacles;
 
-        if (item.y > s.height + 40) {
-          s.collectibles.splice(i, 1);
+        // Continuous score for distance
+        stateRef.current.score += dt * currentSpeed * 1.5;
+
+        // Sync states for React UI
+        setScore(Math.floor(stateRef.current.score));
+        setDistanceMeters(Math.floor(stateRef.current.distance));
+        setSpeedKnots(Math.floor(currentSpeed));
+        setShipHullLife(stateRef.current.hullLife);
+        setEcoBoostTime(Math.ceil(stateRef.current.ecoBoost));
+      }
+
+      // --- RENDERING ---
+      // 1. Deep Ocean Background
+      const oceanGrad = ctx.createLinearGradient(0, 0, 0, h);
+      oceanGrad.addColorStop(0, "#082f49"); // deep navy
+      oceanGrad.addColorStop(1, "#0284c7"); // bright azure
+      ctx.fillStyle = oceanGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Sea wave ripples
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.lineWidth = 1.5;
+      const waveSpacing = 36;
+      for (let y = -waveSpacing + stateRef.current.waterOffset; y < h + waveSpacing; y += waveSpacing) {
+        ctx.beginPath();
+        for (let x = 0; x <= w; x += 30) {
+          const waveY = y + Math.sin((x + time * 0.08) * 0.04) * 4;
+          if (x === 0) ctx.moveTo(x, waveY);
+          else ctx.lineTo(x, waveY);
         }
-      }
-
-      // --- Draw Player Vessel (HD Hyundai LNG Carrier Vector) ---
-      ctx.save();
-      ctx.translate(s.playerX, s.playerY);
-
-      // Turbo glow effect
-      if (s.turboTimer > 0) {
-        ctx.fillStyle = "rgba(239, 68, 68, 0.4)";
-        ctx.beginPath();
-        ctx.ellipse(0, 0, s.playerWidth + 12, s.playerHeight + 10, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Shield bubble
-      if (s.hasShield) {
-        ctx.strokeStyle = "#60A5FA";
-        ctx.lineWidth = 3;
-        ctx.fillStyle = "rgba(96, 165, 250, 0.25)";
-        ctx.beginPath();
-        ctx.arc(0, 0, s.playerHeight * 0.65, 0, Math.PI * 2);
-        ctx.fill();
         ctx.stroke();
       }
 
-      // Ship Hull Outline
-      ctx.fillStyle = "#003876"; // HD Blue Hull
+      // 2. Wake Particles
+      const nextParticles: WakeParticle[] = [];
+      for (const p of stateRef.current.wakeParticles) {
+        p.y += p.vy;
+        p.x += p.vx;
+        p.radius += 0.15;
+        p.alpha -= 0.02;
+
+        if (p.alpha > 0) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.7})`;
+          ctx.fill();
+          nextParticles.push(p);
+        }
+      }
+      stateRef.current.wakeParticles = nextParticles;
+
+      // 3. Render Obstacles
+      for (const obs of stateRef.current.obstacles) {
+        ctx.save();
+        ctx.translate(obs.x, obs.y);
+
+        if (obs.type === "container") {
+          // Floating 40ft Shipping Container
+          ctx.fillStyle = "#e11d48"; // vibrant shipping red
+          ctx.fillRect(-obs.width / 2, -obs.height / 2, obs.width, obs.height);
+          ctx.strokeStyle = "#881337";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(-obs.width / 2, -obs.height / 2, obs.width, obs.height);
+
+          // Container corrugated lines
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+          ctx.lineWidth = 1;
+          for (let cx = -obs.width / 2 + 8; cx < obs.width / 2; cx += 8) {
+            ctx.beginPath();
+            ctx.moveTo(cx, -obs.height / 2 + 2);
+            ctx.lineTo(cx, obs.height / 2 - 2);
+            ctx.stroke();
+          }
+
+          // Warning hazard tag
+          ctx.fillStyle = "#fef08a";
+          ctx.fillRect(-8, -6, 16, 12);
+        } else if (obs.type === "reef") {
+          // Dangerous Submerged Reef Shoal
+          ctx.fillStyle = "#334155";
+          ctx.beginPath();
+          ctx.moveTo(-obs.width / 2, 0);
+          ctx.lineTo(-obs.width / 4, -obs.height / 2);
+          ctx.lineTo(obs.width / 4, -obs.height / 3);
+          ctx.lineTo(obs.width / 2, 0);
+          ctx.lineTo(obs.width / 3, obs.height / 2);
+          ctx.lineTo(-obs.width / 3, obs.height / 2);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.strokeStyle = "#64748b";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Reef foam
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+          ctx.strokeRect(-obs.width / 2 - 4, -obs.height / 2 - 4, obs.width + 8, obs.height + 8);
+        } else if (obs.type === "gate") {
+          // Speed Radar Measurement Gate (2 Green Navigation Buoys + Laser line)
+          const halfSpan = obs.width / 2;
+
+          // Connecting Laser Gate
+          ctx.strokeStyle = obs.passed ? "rgba(74, 222, 128, 0.25)" : "rgba(74, 222, 128, 0.85)";
+          ctx.lineWidth = 3;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.moveTo(-halfSpan, 0);
+          ctx.lineTo(halfSpan, 0);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Buoy Left
+          ctx.fillStyle = "#22c55e";
+          ctx.beginPath();
+          ctx.arc(-halfSpan, 0, 9, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Buoy Right
+          ctx.beginPath();
+          ctx.arc(halfSpan, 0, 9, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Gate Label
+          ctx.fillStyle = "#4ade80";
+          ctx.font = "bold 10px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText("SPEED GATE", 0, -8);
+        } else if (obs.type === "fuel") {
+          // Eco-Fuel Canister
+          ctx.fillStyle = "#10b981";
+          ctx.beginPath();
+          ctx.arc(0, 0, 14, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+
+          // Zap icon symbol
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.moveTo(-2, -7);
+          ctx.lineTo(4, -1);
+          ctx.lineTo(0, 0);
+          ctx.lineTo(3, 7);
+          ctx.lineTo(-4, 1);
+          ctx.lineTo(-1, 0);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      // 4. Render Ship (VLCC Container/Tanker)
+      ctx.save();
+      ctx.translate(stateRef.current.shipX, stateRef.current.shipY);
+      ctx.rotate(stateRef.current.shipAngle);
+
+      // Ship Hull Drop Shadow
+      ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
       ctx.beginPath();
-      ctx.moveTo(0, -s.playerHeight / 2); // Bow
-      ctx.bezierCurveTo(
-        s.playerWidth / 2, -s.playerHeight * 0.3,
-        s.playerWidth / 2, s.playerHeight * 0.3,
-        s.playerWidth * 0.4, s.playerHeight / 2
-      );
-      ctx.lineTo(-s.playerWidth * 0.4, s.playerHeight / 2);
-      ctx.bezierCurveTo(
-        -s.playerWidth / 2, s.playerHeight * 0.3,
-        -s.playerWidth / 2, -s.playerHeight * 0.3,
-        0, -s.playerHeight / 2
-      );
+      ctx.roundRect(-16, -30, 32, 66, [14, 14, 4, 4]);
       ctx.fill();
 
-      // Deck deckhouse
-      ctx.fillStyle = "#F8FAFC";
-      ctx.fillRect(-s.playerWidth * 0.28, s.playerHeight * 0.12, s.playerWidth * 0.56, 16);
+      // Outer Hull (HD Deep Navy / Steel Grey)
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.moveTo(0, -36); // bow
+      ctx.lineTo(16, -18);
+      ctx.lineTo(16, 28);
+      ctx.lineTo(-16, 28);
+      ctx.lineTo(-16, -18);
+      ctx.closePath();
+      ctx.fill();
 
-      // LNG Membrane Tanks (3 Spherical Dome Silos)
-      ctx.fillStyle = "#00A352"; // HD Green Eco Tanks
-      for (let ty = -s.playerHeight * 0.22; ty <= s.playerHeight * 0.05; ty += 14) {
+      // Hull border & bulbous bow accent
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Deck Main Plate
+      ctx.fillStyle = "#0284c7";
+      ctx.fillRect(-12, -18, 24, 40);
+
+      // Deck Cargo Hatch Covers (HD Green / Orange blocks)
+      ctx.fillStyle = "#f97316";
+      ctx.fillRect(-9, -14, 18, 8);
+      ctx.fillRect(-9, -2, 18, 8);
+      ctx.fillRect(-9, 10, 18, 8);
+
+      // Bridge Deckhouse (aft)
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(-10, 20, 20, 7);
+      ctx.fillStyle = "#0284c7";
+      ctx.fillRect(-8, 22, 16, 2);
+
+      // Eco Turbo Glow Effect
+      if (stateRef.current.ecoBoost > 0) {
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.8)";
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.ellipse(0, ty, s.playerWidth * 0.28, 5.5, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(0, 0, 28, 0, Math.PI * 2);
+        ctx.stroke();
       }
 
       ctx.restore();
-      ctx.restore(); // Restore shake
 
-      animFrameRef.current = requestAnimationFrame(render);
+      ctx.restore(); // Restore DPR scaling
+
+      animId = requestAnimationFrame(render);
     };
 
-    animFrameRef.current = requestAnimationFrame(render);
+    animId = requestAnimationFrame(render);
+
     return () => {
-      running = false;
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      cancelAnimationFrame(animId);
+      ro.disconnect();
     };
-  }, [gameState]);
+  }, []);
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
-      {/* Top Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
-            <Compass className="w-4 h-4 text-white" />
+    <div className="relative w-full h-full flex flex-col bg-slate-950 font-hd select-none overflow-hidden text-white">
+      {/* Header HUD */}
+      <div className="flex items-center justify-between px-3 py-2 bg-slate-900/95 border-b border-slate-800 shrink-0 z-10 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg border border-indigo-500/30">
+            <Compass className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm sm:text-base font-bold text-white">영암만 쾌속 항해 (Ocean Voyager)</h3>
-              {hasShield && (
-                <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1 animate-pulse">
-                  <Shield className="w-3 h-3" /> 방어막
-                </span>
-              )}
-              {isTurbo && (
-                <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1 animate-bounce">
-                  <Zap className="w-3 h-3 fill-current" /> 터보
-                </span>
-              )}
+            <div className="text-xs font-black text-slate-100 flex items-center gap-1.5">
+              영암만 Sea Trial 시운전
+              <span className="text-[10px] px-1.5 py-0.2 bg-indigo-500/20 text-indigo-300 rounded font-bold">
+                쾌속 항해
+              </span>
             </div>
-            <p className="text-xs text-slate-400 font-normal hidden sm:block">
-              암초를 회피하고 친환경 배터리와 황금 닻을 수집하며 영암만을 고속 항주하세요.
-            </p>
+            <div className="text-[10px] text-slate-400">
+              컨테이너·암초 회피 & 스피드 레이더 게이트 통과
+            </div>
           </div>
         </div>
 
-        {/* Live Gauges */}
-        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">항해 거리</span>
-            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">
-              {distance.toLocaleString()} NM
-            </span>
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Speed */}
+          <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700">
+            <Gauge className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-xs font-black text-cyan-300">{speedKnots} KTS</span>
           </div>
 
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">추진 배터리</span>
-            <span className={`text-xs sm:text-sm font-bold tabular-nums ${battery < 25 ? "text-rose-400 animate-pulse" : "text-emerald-400"}`}>
-              {battery}%
-            </span>
+          {/* Distance */}
+          <div className="hidden sm:flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700">
+            <span className="text-[10px] text-slate-400 font-bold">항행:</span>
+            <span className="text-xs font-black text-emerald-300">{distanceMeters}m</span>
           </div>
 
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">항해 스코어</span>
-            <span className="text-xs sm:text-sm font-bold text-emerald-400 tabular-nums">
+          {/* Hull Life */}
+          <div className="flex items-center gap-1 bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700">
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+            <div className="flex gap-1">
+              {[1, 2, 3].map((heart) => (
+                <div
+                  key={heart}
+                  className={`w-2 h-3 rounded-xs ${
+                    heart <= shipHullLife ? "bg-rose-500 shadow-xs shadow-rose-500/50" : "bg-slate-700"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Score */}
+          <div className="flex items-center gap-1.5 bg-indigo-950/80 px-2.5 py-1 rounded-md border border-indigo-700">
+            <Award className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-xs sm:text-sm font-black text-amber-300">
               {score.toLocaleString()}점
             </span>
           </div>
 
+          {/* Mute */}
           <button
             onClick={toggleSound}
-            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
-            title={isMuted ? "소리 켜기" : "음소거"}
+            className="p-1 text-slate-400 hover:text-white transition-colors"
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {/* Canvas Container with Pointer Controls */}
-      <div
-        onPointerMove={handlePointerMove}
-        className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[340px] sm:h-[370px] md:h-[380px] flex items-center justify-center cursor-crosshair touch-none"
-      >
-        <canvas ref={canvasRef} width={540} height={520} className="w-full h-full object-cover block" />
+      {/* Main Canvas Container (100% Flex, responsive fit) */}
+      <div ref={mountRef} className="relative flex-1 w-full min-h-0 overflow-hidden bg-slate-900">
+        <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />
 
-        {/* START OVERLAY */}
+        {/* READY Overlay */}
         {gameState === "READY" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white z-20">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center mb-3 text-blue-400 shadow-md">
-              <Compass className="w-6 h-6" />
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mb-3 text-indigo-400 shadow-lg">
+              <Compass className="w-8 h-8" />
             </div>
-            <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">영암만 쾌속 항해</h2>
-            <p className="text-slate-300 text-xs sm:text-[13px] max-w-sm mb-4 leading-relaxed font-normal">
-              가만히 있으면 배터리가 방전되어 표류합니다!<br />
-              암초와 부표를 피하고 <span className="text-emerald-400 font-bold">⚡친환경 배터리</span>와 <span className="text-amber-400 font-bold">⚓황금 닻</span>을 수집하세요!
+            <h3 className="text-lg sm:text-xl font-black text-white mb-2">
+              영암만 Sea Trial 실해역 시운전
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-md mb-4 leading-relaxed">
+              신조선 VLCC의 최고 속력 테스트! 부유 컨테이너와 암초를 날렵하게 피하고,
+              녹색 스피드 측정 게이트를 정중앙으로 통과하여 연속 콤보 보너스를 획득하세요.
             </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-slate-400 mb-6 bg-slate-900/90 px-4 py-2.5 rounded-xl border border-slate-800">
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 bg-slate-800 rounded font-mono font-bold text-slate-200">
+                  ← / →
+                </span>
+                <span>조타 방향키</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 bg-slate-800 rounded font-mono font-bold text-slate-200">
+                  스페이스바
+                </span>
+                <span>터보 가속</span>
+              </div>
+            </div>
+
             <button
               onClick={startGame}
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-black text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
             >
-              <Play className="w-4 h-4 fill-current" />
-              출항하기
+              <Play className="w-4 h-4 fill-white" />
+              시운전 출항하기
             </button>
           </div>
         )}
 
-        {/* GAME OVER OVERLAY */}
+        {/* GAMEOVER Overlay */}
         {gameState === "GAMEOVER" && (
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white z-20 animate-in fade-in duration-200">
-            <div className="w-12 h-12 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mb-2.5 text-rose-400">
-              <Compass className="w-6 h-6" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center z-20 animate-in fade-in zoom-in-95">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-2 text-amber-400">
+              <Award className="w-8 h-8" />
             </div>
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">시운전 항해 종료</h3>
-            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm font-normal">{gameOverReason || "장애물에 충돌했습니다!"}</p>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 w-full max-w-xs mb-4 shadow-md space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">최종 점수</span>
-                <span className="font-bold text-emerald-400 tabular-nums">{score.toLocaleString()}점</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">항해 거리</span>
-                <span className="font-bold text-sky-400 tabular-nums">{distance.toLocaleString()} NM</span>
-              </div>
+            <h3 className="text-lg sm:text-xl font-black text-white mb-1">
+              시운전 작전 종료
+            </h3>
+            <div className="text-2xl sm:text-3xl font-black text-amber-300 mb-2">
+              최종 점수: {score.toLocaleString()}점
             </div>
+            <p className="text-xs text-slate-300 max-w-sm mb-5">
+              항행 거리: <span className="font-bold text-emerald-400">{distanceMeters}m</span> |
+              월간 최고 기록에 등록되었습니다.
+            </p>
 
             <button
               onClick={startGame}
-              className="px-6 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-black text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
               다시 출항하기
@@ -640,10 +696,40 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
         )}
       </div>
 
-      {/* Footer Instructions */}
-      <div className="w-full mt-2 bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-xl text-[11px] text-slate-400 flex items-center justify-between">
-        <span>💡 조작법: 마우스 좌우 이동 / 좌우 방향키 (← →)</span>
-        <span className="text-slate-500 hidden sm:inline">🚀 터보 부스터 획득 시 전방 무적 돌파</span>
+      {/* On-screen Mobile/Touch Controls */}
+      <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-t border-slate-800 shrink-0 z-10 gap-2">
+        <div className="flex gap-2">
+          <button
+            onPointerDown={() => (keysRef.current.left = true)}
+            onPointerUp={() => (keysRef.current.left = false)}
+            onPointerLeave={() => (keysRef.current.left = false)}
+            className="w-12 h-10 bg-slate-800 active:bg-slate-700 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center justify-center text-slate-300 active:scale-95 transition-transform"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <button
+            onPointerDown={() => (keysRef.current.right = true)}
+            onPointerUp={() => (keysRef.current.right = false)}
+            onPointerLeave={() => (keysRef.current.right = false)}
+            className="w-12 h-10 bg-slate-800 active:bg-slate-700 hover:bg-slate-750 border border-slate-700 rounded-lg flex items-center justify-center text-slate-300 active:scale-95 transition-transform"
+          >
+            <ArrowRight className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="text-center text-[11px] text-slate-400 hidden sm:block">
+          키보드 [A/D] 또는 방향키로 조타 · [Space] 에코 터보 부스터
+        </div>
+
+        <button
+          onPointerDown={() => (keysRef.current.boost = true)}
+          onPointerUp={() => (keysRef.current.boost = false)}
+          onPointerLeave={() => (keysRef.current.boost = false)}
+          className="px-4 h-10 bg-cyan-600 active:bg-cyan-500 hover:bg-cyan-550 border border-cyan-500 rounded-lg flex items-center gap-1.5 text-white font-black text-xs active:scale-95 transition-transform"
+        >
+          <Zap className="w-4 h-4 fill-white" />
+          터보 부스터 {ecoBoostTime > 0 ? `(${ecoBoostTime}s)` : ""}
+        </button>
       </div>
     </div>
   );

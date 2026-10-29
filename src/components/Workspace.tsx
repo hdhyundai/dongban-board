@@ -100,23 +100,38 @@ export default function Workspace() {
                     {" "}
                     <Filter className="w-3.5 h-3.5" /> 파트 필터링{" "}
                   </h3>{" "}
-                  <div className="bg-[#E5E5EA] p-1.5 rounded-[16px] grid grid-cols-3 gap-1.5">
-                    {" "}
-                    <button
-                      onClick={() => setFilterTeam("all")}
-                      className={`px-3 py-2 rounded-[12px] text-[13px] md:text-[14px] font-bold border ${filterTeam === "all" ? "bg-white text-[#1D1D1F] border-gray-300 shadow-sm" : "text-[#48484A] border-transparent active:scale-95 hover:bg-gray-100"}`}
-                    >
-                      전체
-                    </button>{" "}
-                    {TEAMS.filter((t) => t.id !== "t_notice").map((team) => (
+                  <div className="bg-[#E5E5EA] p-1.5 rounded-[16px] flex flex-col gap-1.5 w-full">
+                    {/* Row 1: 전체, 담당임원, 부서장 (각 1/3 폭) */}
+                    <div className="grid grid-cols-3 gap-1.5 w-full">
                       <button
-                        key={team.id}
-                        onClick={() => setFilterTeam(team.id)}
-                        className={`px-3 py-2 rounded-[12px] text-[13px] md:text-[14px] font-bold border ${filterTeam === team.id ? "bg-white text-[#1D1D1F] border-gray-300 shadow-sm" : "text-[#48484A] border-transparent active:scale-95 hover:bg-gray-100"}`}
+                        onClick={() => setFilterTeam("all")}
+                        className={`w-full py-2 px-1 rounded-[12px] text-[12.5px] sm:text-[13px] md:text-[14px] font-bold border text-center truncate transition-all ${filterTeam === "all" ? "bg-white text-[#1D1D1F] border-gray-300 shadow-sm" : "text-[#48484A] border-transparent active:scale-95 hover:bg-gray-100"}`}
                       >
-                        {team.name}
+                        전체
                       </button>
-                    ))}{" "}
+                      {TEAMS.filter((t) => t.id === "t5" || t.id === "t6").map((team) => (
+                        <button
+                          key={team.id}
+                          onClick={() => setFilterTeam(team.id)}
+                          className={`w-full py-2 px-1 rounded-[12px] text-[12.5px] sm:text-[13px] md:text-[14px] font-bold border text-center truncate transition-all ${filterTeam === team.id ? "bg-white text-[#1D1D1F] border-gray-300 shadow-sm" : "text-[#48484A] border-transparent active:scale-95 hover:bg-gray-100"}`}
+                        >
+                          {team.name}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Row 2: 기획과, 지원과, 인력지원과, 협력과 (각 1/4 폭) */}
+                    <div className="grid grid-cols-4 gap-1.5 w-full">
+                      {TEAMS.filter((t) => ["t1", "t2", "t3", "t4"].includes(t.id)).map((team) => (
+                        <button
+                          key={team.id}
+                          onClick={() => setFilterTeam(team.id)}
+                          className={`w-full py-2 px-0.5 sm:px-1 rounded-[12px] text-[11px] sm:text-[12px] md:text-[13px] font-bold border text-center truncate transition-all ${filterTeam === team.id ? "bg-white text-[#1D1D1F] border-gray-300 shadow-sm" : "text-[#48484A] border-transparent active:scale-95 hover:bg-gray-100"}`}
+                        >
+                          {team.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>{" "}
                 </div>{" "}
                 <div className="lg:w-3/5 flex flex-col gap-3 lg:border-l border-gray-200 lg:pl-8">

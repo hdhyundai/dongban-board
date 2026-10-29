@@ -1,6 +1,7 @@
 export const TEAMS = [
   { id: 't_notice', name: '부서공지', text: 'text-white', bg: 'bg-[#6B7280]', border: 'border-[#4B5563]', hex: '#6B7280' },
   { id: 't5', name: '담당임원', text: 'text-[#FF3B30]', bg: 'bg-[#FF3B30]/15', border: 'border-[#FF3B30]/30', hex: '#FF3B30' },
+  { id: 't6', name: '부서장', text: 'text-[#4F46E5]', bg: 'bg-[#4F46E5]/15', border: 'border-[#4F46E5]/30', hex: '#4F46E5' },
   { id: 't1', name: '기획과', text: 'text-[#007AFF]', bg: 'bg-[#007AFF]/15', border: 'border-[#007AFF]/30', hex: '#007AFF' },
   { id: 't2', name: '지원과', text: 'text-[#34C759]', bg: 'bg-[#34C759]/15', border: 'border-[#34C759]/30', hex: '#34C759' },
   { id: 't3', name: '인력지원과', text: 'text-[#FF9500]', bg: 'bg-[#FF9500]/15', border: 'border-[#FF9500]/30', hex: '#FF9500' },

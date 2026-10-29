@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Play, RotateCcw, Volume2, VolumeX, ShieldCheck, Zap, AlertTriangle, Scan, CheckCircle2 } from "lucide-react";
+import { Play, RotateCcw, Volume2, VolumeX, Scan, Zap, AlertTriangle, ShieldCheck, Award, Radio } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
 
@@ -7,60 +7,63 @@ interface LNGTankInspectGameProps {
   onFinish: (score: number) => void;
 }
 
-interface Defect {
+type DefectType = "crack" | "pore" | "leak";
+
+interface ActiveDefect {
   id: number;
   x: number;
   y: number;
-  type: "micro_crack" | "pore" | "undercut" | "cold_joint";
+  type: DefectType;
+  requiredFreq: 120 | 240 | 480; // kHz
   radius: number;
-  progress: number; // 0 to 1 (scanned progress)
-  severity: number; // 1 to 3
+  spawnTime: number;
+  maxLifetime: number; // seconds before breach
+  currentLife: number;
   cleared: boolean;
-  seamIndex: number;
-  discovered: boolean;
+  angle: number;
 }
 
-interface ScanParticle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  alpha: number;
-  life: number;
+interface LaserBeam {
+  startX: number;
+  startY: number;
+  targetX: number;
+  targetY: number;
   color: string;
+  alpha: number;
 }
 
 export default function LNGTankInspectGame({ onFinish }: LNGTankInspectGameProps) {
+  const mountRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [gameState, setGameState] = useState<"READY" | "PLAYING" | "GAMEOVER">("READY");
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(45);
-  const [tankPressure, setTankPressure] = useState(101.3); // kPa
-  const [laserPower, setLaserPower] = useState(85);
-  const [defectCount, setDefectCount] = useState(0);
-  const [clearedCount, setClearedCount] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(40);
+  const [stage, setStage] = useState(1);
+  const [activeFreq, setActiveFreq] = useState<120 | 240 | 480>(120);
   const [combo, setCombo] = useState(0);
+  const [tankBreachLevel, setTankBreachLevel] = useState(0); // 0 to 100%
+  const [clearedCount, setClearedCount] = useState(0);
   const [isMuted, setIsMuted] = useState(gameAudio.getMuted());
+  const [feedback, setFeedback] = useState<{ text: string; color: string } | null>(null);
 
   const stateRef = useRef({
+    isPlaying: false,
     score: 0,
-    timeLeft: 45,
+    stage: 1,
+    timeLeft: 40,
     combo: 0,
     maxCombo: 0,
-    scannerX: 320,
-    scannerY: 190,
-    isScanning: false,
-    defects: [] as Defect[],
-    particles: [] as ScanParticle[],
-    corrugationPhase: 0,
-    width: 640,
-    height: 380,
-    lastFrameTime: 0,
-    pulseTimer: 0,
-    temperatureK: 111.15, // -162°C LNG temperature
+    breach: 0,
+    clearedCount: 0,
+    mouseX: 320,
+    mouseY: 200,
+    activeFreq: 120 as 120 | 240 | 480,
+    defects: [] as ActiveDefect[],
+    lasers: [] as LaserBeam[],
+    nextSpawnTimer: 0.6,
+    idCounter: 1,
+    corrugationAnim: 0,
   });
-
-  const animFrameRef = useRef<number | null>(null);
 
   const toggleSound = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -68,615 +71,601 @@ export default function LNGTankInspectGame({ onFinish }: LNGTankInspectGameProps
     setIsMuted(muted);
   };
 
-  const spawnDefects = (width: number, height: number): Defect[] => {
-    const list: Defect[] = [];
-    const types: Array<"micro_crack" | "pore" | "undercut" | "cold_joint"> = [
-      "micro_crack",
-      "pore",
-      "undercut",
-      "cold_joint",
+  const spawnDefect = (w: number, h: number) => {
+    const s = stateRef.current;
+    if (s.defects.length >= 8 + s.stage * 2) return;
+
+    const types: Array<{ type: DefectType; freq: 120 | 240 | 480 }> = [
+      { type: "crack", freq: 120 },
+      { type: "pore", freq: 240 },
+      { type: "leak", freq: 480 },
     ];
-    // Generate along the corrugation weld seams
-    const seamRows = [height * 0.25, height * 0.45, height * 0.65, height * 0.82];
-    const seamCols = [width * 0.2, width * 0.4, width * 0.6, width * 0.8];
+    const picked = types[Math.floor(Math.random() * types.length)];
 
-    let id = 1;
-    // Generate 12-16 defects distributed along seams
-    for (let i = 0; i < 14; i++) {
-      const isHorizontal = Math.random() > 0.45;
-      let x = 0;
-      let y = 0;
-      if (isHorizontal) {
-        y = seamRows[Math.floor(Math.random() * seamRows.length)] + (Math.random() * 8 - 4);
-        x = 60 + Math.random() * (width - 120);
-      } else {
-        x = seamCols[Math.floor(Math.random() * seamCols.length)] + (Math.random() * 8 - 4);
-        y = 50 + Math.random() * (height - 100);
-      }
+    const marginX = w * 0.12;
+    const marginY = h * 0.12;
 
-      list.push({
-        id: id++,
-        x,
-        y,
-        type: types[Math.floor(Math.random() * types.length)],
-        radius: 14 + Math.random() * 8,
-        progress: 0,
-        severity: Math.floor(Math.random() * 3) + 1,
-        cleared: false,
-        seamIndex: i,
-        discovered: false,
-      });
-    }
-    return list;
+    s.defects.push({
+      id: s.idCounter++,
+      x: marginX + Math.random() * (w - marginX * 2),
+      y: marginY + Math.random() * (h - marginY * 2),
+      type: picked.type,
+      requiredFreq: picked.freq,
+      radius: 18 + Math.random() * 8,
+      spawnTime: performance.now(),
+      maxLifetime: Math.max(2.0, 4.2 - s.stage * 0.6),
+      currentLife: 0,
+      cleared: false,
+      angle: Math.random() * Math.PI * 2,
+    });
   };
 
   const startGame = () => {
     const s = stateRef.current;
+    s.isPlaying = true;
     s.score = 0;
-    s.timeLeft = 45;
+    s.stage = 1;
+    s.timeLeft = 40;
     s.combo = 0;
     s.maxCombo = 0;
-    s.particles = [];
-    s.defects = spawnDefects(s.width, s.height);
-    s.lastFrameTime = performance.now();
-    s.isScanning = false;
-    s.scannerX = s.width / 2;
-    s.scannerY = s.height / 2;
+    s.breach = 0;
+    s.clearedCount = 0;
+    s.defects = [];
+    s.lasers = [];
+    s.activeFreq = 120;
+    s.nextSpawnTimer = 0.4;
 
     setScore(0);
-    setTimeLeft(45);
-    setDefectCount(s.defects.length);
-    setClearedCount(0);
+    setTimeLeft(40);
+    setStage(1);
     setCombo(0);
+    setTankBreachLevel(0);
+    setClearedCount(0);
+    setActiveFreq(120);
+    setFeedback(null);
     setGameState("PLAYING");
+
     gameAudio.playClick();
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+  // Timer loop
+  useEffect(() => {
     if (gameState !== "PLAYING") return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const interval = setInterval(() => {
+      const s = stateRef.current;
+      s.timeLeft -= 1;
+      setTimeLeft(s.timeLeft);
 
-    stateRef.current.scannerX = (e.clientX - rect.left) * scaleX;
-    stateRef.current.scannerY = (e.clientY - rect.top) * scaleY;
-  };
+      // Advance stage every 14 seconds
+      if (s.timeLeft === 26 && s.stage === 1) {
+        s.stage = 2;
+        setStage(2);
+        gameAudio.playVictory();
+        setFeedback({ text: "⚠️ 2단계: 극저온 급랭 수축 스트레스 급증!", color: "#38bdf8" });
+      } else if (s.timeLeft === 12 && s.stage === 2) {
+        s.stage = 3;
+        setStage(3);
+        gameAudio.playVictory();
+        setFeedback({ text: "🚨 3단계: 초정밀 헬륨 누설 진공 비상 검사!", color: "#f43f5e" });
+      }
 
-  const handlePointerDown = () => {
-    if (gameState === "PLAYING") {
-      stateRef.current.isScanning = true;
-      gameAudio.playMetalClang(1200);
-    }
-  };
+      if (s.timeLeft <= 0) {
+        clearInterval(interval);
+        s.isPlaying = false;
+        setGameState("GAMEOVER");
+        gameAudio.playVictory();
+        onFinish(s.score);
+        confetti({ particleCount: 70, spread: 70, origin: { y: 0.6 } });
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameState]);
 
-  const handlePointerUp = () => {
-    stateRef.current.isScanning = false;
-  };
-
-  // Main Game Loop
+  // Main Render & Interaction Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let timerInterval: any = null;
-    if (gameState === "PLAYING") {
-      timerInterval = setInterval(() => {
-        stateRef.current.timeLeft -= 1;
-        setTimeLeft(stateRef.current.timeLeft);
-
-        // Fluctuate pressure slightly for realism
-        setTankPressure((p) => +(101.3 + (Math.sin(Date.now() / 1500) * 0.4)).toFixed(1));
-
-        if (stateRef.current.timeLeft <= 0) {
-          clearInterval(timerInterval);
-          finishGame();
-        }
-      }, 1000);
-    }
-
-    const finishGame = () => {
-      setGameState("GAMEOVER");
-      const finalScore = stateRef.current.score;
-      onFinish(finalScore);
-      if (finalScore >= 1200) {
-        confetti({
-          particleCount: 70,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ["#00A352", "#007AFF", "#50E3C2", "#FFFFFF"],
-        });
-      }
-    };
+    let animId: number;
+    let lastTime = performance.now();
 
     const render = (now: number) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.08);
+      lastTime = now;
       const s = stateRef.current;
-      const dt = Math.min((now - s.lastFrameTime) / 1000, 0.1);
-      s.lastFrameTime = now;
-      s.pulseTimer += dt * 3;
-      s.corrugationPhase += dt * 0.5;
 
       const w = canvas.width;
       const h = canvas.height;
 
-      // 1. Draw Background - Mark-III Stainless Steel Membrane Cargo Hold
-      ctx.fillStyle = "#0c121d";
+      if (s.isPlaying) {
+        s.corrugationAnim += dt;
+
+        // Spawn defects dynamically
+        s.nextSpawnTimer -= dt;
+        if (s.nextSpawnTimer <= 0) {
+          spawnDefect(w, h);
+          s.nextSpawnTimer = Math.max(0.4, 1.2 - s.stage * 0.25 + Math.random() * 0.4);
+        }
+
+        // Update active defects
+        for (let i = s.defects.length - 1; i >= 0; i--) {
+          const d = s.defects[i];
+          d.currentLife += dt;
+
+          // If defect breached threshold!
+          if (d.currentLife >= d.maxLifetime && !d.cleared) {
+            s.breach = Math.min(100, s.breach + 18);
+            s.combo = 0;
+            setCombo(0);
+            setTankBreachLevel(s.breach);
+            setFeedback({ text: "💥 멤브레인 국부 누설 발생 (-100점 / 위험도 상승)!", color: "#ef4444" });
+            s.score = Math.max(0, s.score - 100);
+            setScore(s.score);
+            gameAudio.playDrop();
+
+            s.defects.splice(i, 1);
+
+            if (s.breach >= 100) {
+              s.isPlaying = false;
+              setGameState("GAMEOVER");
+              onFinish(s.score);
+              break;
+            }
+          }
+        }
+
+        // Update Laser Beams
+        for (let i = s.lasers.length - 1; i >= 0; i--) {
+          s.lasers[i].alpha -= dt * 4;
+          if (s.lasers[i].alpha <= 0) {
+            s.lasers.splice(i, 1);
+          }
+        }
+      }
+
+      // ----------------- RENDER CANVAS -----------------
+      ctx.clearRect(0, 0, w, h);
+
+      // Cryogenic Stainless Steel Membrane Background
+      const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+      bgGrad.addColorStop(0, "#0b1329");
+      bgGrad.addColorStop(0.5, "#132142");
+      bgGrad.addColorStop(1, "#0a0f1d");
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, w, h);
 
-      // Stainless steel metallic sheen & corrugated knots pattern
-      const grad = ctx.createLinearGradient(0, 0, w, h);
-      grad.addColorStop(0, "#162338");
-      grad.addColorStop(0.5, "#1f304c");
-      grad.addColorStop(1, "#111a28");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
-
-      // Corrugation grid (주름진 스테인리스 격자 판넬)
+      // Stainless Steel Corrugated Ribs (주름 격자)
+      ctx.save();
       const stepX = 70;
       const stepY = 55;
 
-      ctx.save();
-      // Draw horizontal corrugation ribs
       for (let y = 30; y < h; y += stepY) {
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
         ctx.stroke();
 
-        // 3D corrugation crest
-        ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-        ctx.fillRect(0, y - 6, w, 12);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-        ctx.fillRect(0, y + 6, w, 4);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+        ctx.fillRect(0, y - 4, w, 8);
       }
 
-      // Draw vertical corrugation ribs
       for (let x = 30; x < w; x += stepX) {
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, h);
         ctx.stroke();
 
-        // 3D corrugation crest
         ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
-        ctx.fillRect(x - 5, 0, 10, h);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-        ctx.fillRect(x + 5, 0, 4, h);
+        ctx.fillRect(x - 4, 0, 8, h);
       }
-
-      // Corrugation intersection knots (주름 교차 매듭 다이아몬드 패턴)
-      for (let x = 30; x < w; x += stepX) {
-        for (let y = 30; y < h; y += stepY) {
-          ctx.beginPath();
-          ctx.arc(x, y, 5, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(200, 225, 255, 0.25)";
-          ctx.fill();
-        }
-      }
-
-      // Overlay cryogenic frost particles / cold haze
-      ctx.fillStyle = "rgba(100, 200, 255, 0.03)";
-      ctx.fillRect(0, 0, w, h);
       ctx.restore();
 
-      // 2. Render Seam Weld Lines (용접선)
-      ctx.save();
-      ctx.strokeStyle = "rgba(0, 163, 82, 0.35)"; // HD Green tint
-      ctx.setLineDash([8, 4]);
-      ctx.lineWidth = 2;
-      [h * 0.25, h * 0.45, h * 0.65, h * 0.82].forEach((rowY) => {
-        ctx.beginPath();
-        ctx.moveTo(20, rowY);
-        ctx.lineTo(w - 20, rowY);
-        ctx.stroke();
-      });
-      [w * 0.2, w * 0.4, w * 0.6, w * 0.8].forEach((colX) => {
-        ctx.beginPath();
-        ctx.moveTo(colX, 20);
-        ctx.lineTo(colX, h - 20);
-        ctx.stroke();
-      });
-      ctx.restore();
-
-      // 3. Update & Render Defects
-      let activeDefectNearby = false;
-      const scanRadius = 45;
-
+      // Render Active Defects
       s.defects.forEach((d) => {
-        const dist = Math.hypot(d.x - s.scannerX, d.y - s.scannerY);
+        const lifeRatio = Math.min(1.0, d.currentLife / d.maxLifetime);
+        const pulse = 1 + Math.sin(now * 0.01 + d.id) * 0.15;
 
-        // Discovery check
-        if (dist < scanRadius + 30) {
-          d.discovered = true;
-        }
-
-        if (!d.cleared && d.discovered) {
-          // Render defect indicator
-          const pulse = Math.sin(s.pulseTimer * 3 + d.id) * 0.2 + 0.8;
-          ctx.save();
-
-          // Flaw glow
-          const defectGrad = ctx.createRadialGradient(d.x, d.y, 2, d.x, d.y, d.radius * pulse);
-          defectGrad.addColorStop(0, "rgba(255, 75, 75, 0.9)");
-          defectGrad.addColorStop(0.5, "rgba(255, 120, 40, 0.6)");
-          defectGrad.addColorStop(1, "rgba(255, 50, 50, 0)");
-
-          ctx.fillStyle = defectGrad;
-          ctx.beginPath();
-          ctx.arc(d.x, d.y, d.radius * pulse, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Defect seam crack line
-          ctx.strokeStyle = "#ffffff";
-          ctx.lineWidth = 1.8;
-          ctx.beginPath();
-          ctx.moveTo(d.x - 7, d.y - 3);
-          ctx.lineTo(d.x - 2, d.y + 4);
-          ctx.lineTo(d.x + 3, d.y - 4);
-          ctx.lineTo(d.x + 8, d.y + 2);
-          ctx.stroke();
-
-          // Scanning progress ring
-          if (d.progress > 0) {
-            ctx.strokeStyle = "#00FF9D";
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(d.x, d.y, d.radius + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * d.progress);
-            ctx.stroke();
-
-            // Progress text
-            ctx.fillStyle = "#00FF9D";
-            ctx.font = "bold 10px monospace";
-            ctx.textAlign = "center";
-            ctx.fillText(`${Math.round(d.progress * 100)}%`, d.x, d.y - d.radius - 8);
-          }
-
-          ctx.restore();
-        } else if (d.cleared) {
-          // Cleared seal
-          ctx.save();
-          ctx.strokeStyle = "rgba(0, 220, 130, 0.6)";
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.arc(d.x, d.y, 8, 0, Math.PI * 2);
-          ctx.stroke();
-
-          ctx.fillStyle = "#00E080";
-          ctx.beginPath();
-          ctx.arc(d.x, d.y, 3, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
-
-        // Check if scanner is on top of this defect and actively scanning
-        if (!d.cleared && dist < scanRadius && s.isScanning) {
-          activeDefectNearby = true;
-          // Progress only increases during active laser scanning
-          const scanRate = 1.6 * dt;
-          d.progress += scanRate;
-
-          // Emit scan particles
-          if (Math.random() < 0.6) {
-            s.particles.push({
-              x: d.x + (Math.random() * 12 - 6),
-              y: d.y + (Math.random() * 12 - 6),
-              vx: (Math.random() - 0.5) * 60,
-              vy: -Math.random() * 80,
-              alpha: 1,
-              life: 0.4,
-              color: s.isScanning ? "#00FFC2" : "#38BDF8",
-            });
-          }
-
-          if (d.progress >= 1) {
-            d.cleared = true;
-            d.progress = 1;
-            s.combo += 1;
-            s.maxCombo = Math.max(s.maxCombo, s.combo);
-            const added = 120 + s.combo * 25;
-            s.score += added;
-            setScore(s.score);
-            setCombo(s.combo);
-
-            const cleared = s.defects.filter((item) => item.cleared).length;
-            setClearedCount(cleared);
-
-            gameAudio.playPerfect(Math.min(s.combo, 8));
-
-            // Burst particles
-            for (let k = 0; k < 18; k++) {
-              const angle = Math.random() * Math.PI * 2;
-              const spd = 40 + Math.random() * 120;
-              s.particles.push({
-                x: d.x,
-                y: d.y,
-                vx: Math.cos(angle) * spd,
-                vy: Math.sin(angle) * spd,
-                alpha: 1,
-                life: 0.6 + Math.random() * 0.4,
-                color: "#00E676",
-              });
-            }
-
-            // Check if all cleared!
-            if (cleared === s.defects.length) {
-              s.score += 500; // All clear bonus
-              setScore(s.score);
-              gameAudio.playShipHorn();
-              setTimeout(() => finishGame(), 800);
-            }
-          }
-        }
-      });
-
-      // 4. Update & Render Particles
-      for (let i = s.particles.length - 1; i >= 0; i--) {
-        const p = s.particles[i];
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.life -= dt;
-        p.alpha = Math.max(0, p.life / 0.6);
+        // Color based on required frequency
+        // 120kHz: Cyan (#06b6d4)
+        // 240kHz: Amber (#f59e0b)
+        // 480kHz: Rose (#f43f5e)
+        const defectColor =
+          d.requiredFreq === 120 ? "#06b6d4" : d.requiredFreq === 240 ? "#f59e0b" : "#f43f5e";
 
         ctx.save();
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.alpha;
+        // Danger outer halo
+        const grad = ctx.createRadialGradient(d.x, d.y, 2, d.x, d.y, d.radius * pulse * 1.6);
+        grad.addColorStop(0, defectColor);
+        grad.addColorStop(0.5, `${defectColor}80`);
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.arc(d.x, d.y, d.radius * pulse * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Urgency countdown ring
+        ctx.strokeStyle = lifeRatio > 0.7 ? "#ef4444" : "#ffffff";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.radius + 6, -Math.PI / 2, -Math.PI / 2 + (1 - lifeRatio) * Math.PI * 2);
+        ctx.stroke();
+
+        // Required frequency badge
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(d.x - 24, d.y - d.radius - 16, 48, 14);
+        ctx.strokeStyle = defectColor;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(d.x - 24, d.y - d.radius - 16, 48, 14);
+
+        ctx.fillStyle = defectColor;
+        ctx.font = "bold 9px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`${d.requiredFreq}kHz`, d.x, d.y - d.radius - 6);
+
+        // Core anomaly shape
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (d.type === "crack") {
+          ctx.moveTo(d.x - 10, d.y - 6);
+          ctx.lineTo(d.x - 2, d.y + 4);
+          ctx.lineTo(d.x + 4, d.y - 4);
+          ctx.lineTo(d.x + 10, d.y + 6);
+        } else if (d.type === "pore") {
+          ctx.arc(d.x, d.y, 6, 0, Math.PI * 2);
+        } else {
+          ctx.moveTo(d.x, d.y - 8);
+          ctx.lineTo(d.x + 8, d.y + 8);
+          ctx.lineTo(d.x - 8, d.y + 8);
+          ctx.closePath();
+        }
+        ctx.stroke();
+
+        ctx.restore();
+      });
+
+      // Render Laser Beams
+      s.lasers.forEach((l) => {
+        ctx.save();
+        ctx.strokeStyle = l.color;
+        ctx.globalAlpha = l.alpha;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(l.startX, l.startY);
+        ctx.lineTo(l.targetX, l.targetY);
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(l.targetX, l.targetY, 6, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+      });
 
-        if (p.life <= 0) {
-          s.particles.splice(i, 1);
-        }
+      // Render Crosshair Targeting Reticle
+      if (s.isPlaying) {
+        ctx.save();
+        const retColor =
+          s.activeFreq === 120 ? "#06b6d4" : s.activeFreq === 240 ? "#f59e0b" : "#f43f5e";
+
+        // Outer rotating brackets
+        ctx.strokeStyle = retColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(s.mouseX, s.mouseY, 26, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Crosshairs
+        ctx.beginPath();
+        ctx.moveTo(s.mouseX - 34, s.mouseY);
+        ctx.lineTo(s.mouseX - 12, s.mouseY);
+        ctx.moveTo(s.mouseX + 12, s.mouseY);
+        ctx.lineTo(s.mouseX + 34, s.mouseY);
+        ctx.moveTo(s.mouseX, s.mouseY - 34);
+        ctx.lineTo(s.mouseX, s.mouseY - 12);
+        ctx.moveTo(s.mouseX, s.mouseY + 12);
+        ctx.lineTo(s.mouseX, s.mouseY + 34);
+        ctx.stroke();
+
+        // Frequency Label on Reticle
+        ctx.fillStyle = retColor;
+        ctx.font = "black 10px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`[${s.activeFreq}kHz]`, s.mouseX, s.mouseY + 40);
+
+        ctx.restore();
       }
 
-      // 5. Draw Laser Scanner Head & HUD (Follows cursor)
-      const sx = s.scannerX;
-      const sy = s.scannerY;
-
-      ctx.save();
-      // Outer scanner ring
-      ctx.strokeStyle = activeDefectNearby
-        ? "rgba(255, 75, 75, 0.85)"
-        : s.isScanning
-        ? "rgba(0, 255, 180, 0.9)"
-        : "rgba(56, 189, 248, 0.8)";
-      ctx.lineWidth = s.isScanning ? 2.5 : 1.5;
-      ctx.beginPath();
-      ctx.arc(sx, sy, scanRadius, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Scanner crosshairs
-      ctx.beginPath();
-      ctx.moveTo(sx - scanRadius - 8, sy);
-      ctx.lineTo(sx - scanRadius + 8, sy);
-      ctx.moveTo(sx + scanRadius - 8, sy);
-      ctx.lineTo(sx + scanRadius + 8, sy);
-      ctx.moveTo(sx, sy - scanRadius - 8);
-      ctx.lineTo(sx, sy - scanRadius + 8);
-      ctx.moveTo(sx, sy + scanRadius - 8);
-      ctx.lineTo(sx, sy + scanRadius + 8);
-      ctx.stroke();
-
-      // Rotating radar sweep
-      const sweepAngle = (now / 350) % (Math.PI * 2);
-      const sweepGrad = ctx.createConicGradient(sweepAngle, sx, sy);
-      sweepGrad.addColorStop(0, "rgba(0, 255, 180, 0.2)");
-      sweepGrad.addColorStop(0.12, "rgba(0, 255, 180, 0)");
-      sweepGrad.addColorStop(1, "rgba(0, 255, 180, 0)");
-      ctx.fillStyle = sweepGrad;
-      ctx.beginPath();
-      ctx.arc(sx, sy, scanRadius - 1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Center laser dot
-      ctx.fillStyle = s.isScanning ? "#FF3B30" : "#00F0FF";
-      ctx.shadowColor = s.isScanning ? "#FF3B30" : "#00F0FF";
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.arc(sx, sy, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // 6. Draw HUD overlays
-      ctx.save();
-      // Oscilloscope sonogram wave at bottom
-      const oscY = h - 35;
-      ctx.fillStyle = "rgba(10, 20, 32, 0.85)";
-      ctx.fillRect(15, oscY - 15, 200, 38);
-      ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
-      ctx.strokeRect(15, oscY - 15, 200, 38);
-
-      ctx.strokeStyle = activeDefectNearby ? "#FF453A" : "#00FFC2";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      for (let x = 0; x < 190; x += 3) {
-        const amp = activeDefectNearby ? 12 : 3;
-        const wave = Math.sin((x * 0.15) + (now * 0.01)) * amp;
-        if (x === 0) ctx.moveTo(20 + x, oscY + wave);
-        else ctx.lineTo(20 + x, oscY + wave);
-      }
-      ctx.stroke();
-
-      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-      ctx.font = "9px monospace";
-      ctx.fillText("ULTRASONIC ECHO SPECTRUM (NDT)", 22, oscY - 5);
-      ctx.restore();
-
-      if (gameState === "PLAYING") {
-        animFrameRef.current = requestAnimationFrame(render);
-      }
+      animId = requestAnimationFrame(render);
     };
 
-    if (gameState === "PLAYING") {
-      animFrameRef.current = requestAnimationFrame(render);
-    } else {
-      // Draw idle preview
-      render(performance.now());
-    }
+    animId = requestAnimationFrame(render);
+
+    const container = mountRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const cw = entry.contentRect.width;
+        const ch = entry.contentRect.height;
+        if (cw > 50 && ch > 50) {
+          canvas.width = cw;
+          canvas.height = ch;
+        }
+      }
+    });
+    resizeObserver.observe(container);
 
     return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (timerInterval) clearInterval(timerInterval);
+      cancelAnimationFrame(animId);
+      resizeObserver.disconnect();
     };
   }, [gameState]);
 
+  // Pointer Movement
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    stateRef.current.mouseX = e.clientX - rect.left;
+    stateRef.current.mouseY = e.clientY - rect.top;
+  };
+
+  // Laser Strike Trigger (Click to scan & neutralize)
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (gameState !== "PLAYING") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const s = stateRef.current;
+    const currentFreq = s.activeFreq;
+
+    // Laser beam visualization
+    const beamColor = currentFreq === 120 ? "#06b6d4" : currentFreq === 240 ? "#f59e0b" : "#f43f5e";
+    s.lasers.push({
+      startX: mx,
+      startY: canvas.height,
+      targetX: mx,
+      targetY: my,
+      color: beamColor,
+      alpha: 1.0,
+    });
+
+    gameAudio.playClick();
+
+    // Check hit on defects
+    let hitFound = false;
+
+    for (let i = s.defects.length - 1; i >= 0; i--) {
+      const d = s.defects[i];
+      const dist = Math.hypot(mx - d.x, my - d.y);
+
+      if (dist <= d.radius + 12) {
+        hitFound = true;
+
+        if (d.requiredFreq === currentFreq) {
+          // MATCHED RESONANCE FREQUENCY!
+          const reactionTime = (performance.now() - d.spawnTime) / 1000;
+          const isInstant = reactionTime < 0.8;
+
+          s.combo += 1;
+          s.maxCombo = Math.max(s.maxCombo, s.combo);
+          s.clearedCount += 1;
+
+          const basePts = 350;
+          const speedBonus = isInstant ? 500 : Math.round(Math.max(0, 300 - reactionTime * 80));
+          const precisionBonus = Math.round(Math.max(0, 1 - dist / (d.radius + 12)) * 300);
+          const totalEarned = (basePts + speedBonus + precisionBonus) * Math.min(s.combo, 6);
+
+          s.score += totalEarned;
+          setScore(s.score);
+          setCombo(s.combo);
+          setClearedCount(s.clearedCount);
+
+          setFeedback({
+            text: isInstant
+              ? `⚡ INSTANT RESOLVE! 초고속 탐지 (+${totalEarned.toLocaleString()}점)`
+              : `🎯 공진 차단 성공 (+${totalEarned.toLocaleString()}점)`,
+            color: "#10b981",
+          });
+
+          gameAudio.playPerfect(Math.min(s.combo, 8));
+          s.defects.splice(i, 1);
+        } else {
+          // FREQUENCY MISMATCH PENALTY!
+          s.combo = 0;
+          setCombo(0);
+          s.score = Math.max(0, s.score - 60);
+          setScore(s.score);
+          setFeedback({
+            text: `⚠️ 주파수 불일치! [${d.requiredFreq}kHz]로 전환 필요 (-60점)`,
+            color: "#f43f5e",
+          });
+          gameAudio.playDrop();
+        }
+        break;
+      }
+    }
+
+    if (!hitFound) {
+      // Blank air shot
+      s.combo = 0;
+      setCombo(0);
+    }
+  };
+
+  const switchFrequency = (freq: 120 | 240 | 480) => {
+    stateRef.current.activeFreq = freq;
+    setActiveFreq(freq);
+    gameAudio.playClick();
+  };
+
+  // Keyboard shortcut 1, 2, 3
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "1") switchFrequency(120);
+      if (e.key === "2") switchFrequency(240);
+      if (e.key === "3") switchFrequency(480);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
-      {/* Top Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-md shadow-cyan-500/20 shrink-0">
-            <Scan className="w-4 h-4 text-white" />
+    <div
+      ref={mountRef}
+      className="relative w-full h-full flex-1 min-h-0 flex flex-col bg-slate-950 rounded-xl lg:rounded-2xl overflow-hidden select-none font-hd text-white"
+    >
+      {/* Canvas Viewport Container */}
+      <div className="relative flex-1 w-full min-h-0 overflow-hidden">
+        <canvas
+          ref={canvasRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          className="w-full h-full block cursor-crosshair touch-none"
+        />
+
+      {/* Top HUD */}
+      <div className="absolute top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 flex items-center justify-between pointer-events-none z-10">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl px-2.5 sm:px-3.5 py-1 sm:py-1.5 shadow-lg flex items-center gap-1.5 sm:gap-2">
+            <Scan className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
+            <span className="text-[11px] sm:text-[12px] font-black text-emerald-400 uppercase tracking-wider">
+              {stage}단계: {stage === 1 ? "상온 기밀 검사" : stage === 2 ? "극저온 급랭 수축" : "헬륨 초미세 누설"}
+            </span>
+            <span className="text-[10px] sm:text-[11px] text-slate-300 font-bold bg-slate-800 px-1.5 sm:px-2 py-0.5 rounded-full">
+              결함 제거: {clearedCount}개
+            </span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm sm:text-base font-bold text-white">LNG Mark-III 멤브레인 비파괴 검사</h3>
-              <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                극저온 -162°C | {tankPressure} kPa
-              </span>
+
+          {combo > 1 && (
+            <div className="bg-emerald-500/20 border border-emerald-500/40 rounded-xl px-2.5 py-1 text-emerald-400 text-[11px] font-black animate-pulse">
+              ⚡ {combo} COMBO!
             </div>
-            <p className="text-xs text-slate-400 font-normal hidden sm:block">
-              극저온 스테인리스 멤브레인 용접선의 결함을 레이저로 스캔하여 조치하세요.
-            </p>
-          </div>
+          )}
+
+          {tankBreachLevel > 0 && (
+            <div className="bg-rose-500/20 border border-rose-500/40 rounded-xl px-2.5 py-1 text-rose-400 text-[11px] font-bold">
+              누설 위험도: {tankBreachLevel}%
+            </div>
+          )}
         </div>
 
-        {/* Live Gauges */}
-        <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">검사 시간</span>
-            <span className={`text-xs sm:text-sm font-bold tabular-nums ${timeLeft <= 10 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
-              {timeLeft}초
-            </span>
-          </div>
-
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">결함 조치</span>
-            <span className="text-xs sm:text-sm font-bold text-emerald-400 tabular-nums">
-              {clearedCount} / {defectCount}
-            </span>
-          </div>
-
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">연속 검사</span>
-            <span className="text-xs sm:text-sm font-bold text-cyan-400 tabular-nums">{combo}x</span>
-          </div>
-
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">검사 점수</span>
-            <span className="text-xs sm:text-sm font-bold text-sky-400 tabular-nums">{score.toLocaleString()}점</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+          <div className="bg-slate-900/90 border border-slate-700 rounded-xl px-2.5 py-1 text-[11px] font-bold text-slate-300">
+            ⏳ {timeLeft}초
           </div>
 
           <button
             onClick={toggleSound}
-            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
-            title={isMuted ? "소리 켜기" : "음소거"}
+            className="p-1.5 sm:p-2 bg-slate-800/90 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 shadow-md active:scale-95"
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+            {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
           </button>
+
+          <div className="bg-slate-900/95 border border-emerald-500/30 rounded-xl px-3 sm:px-4 py-1 sm:py-1.5 shadow-lg flex items-center gap-1.5">
+            <Award className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-[14px] sm:text-[15px] font-black text-emerald-400 tabular-nums">
+              {score.toLocaleString()}점
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Main Canvas Viewport */}
-      <div className="w-full relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 h-[330px] sm:h-[360px] md:h-[380px] flex items-center justify-center cursor-crosshair">
-        <canvas
-          ref={canvasRef}
-          width={640}
-          height={380}
-          onPointerMove={handlePointerMove}
-          onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerUp}
-          className="w-full h-full block"
-        />
-
-        {/* READY Overlay */}
-        {gameState === "READY" && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white z-20">
-            <div className="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center mb-3 text-cyan-400 shadow-md">
-              <Scan className="w-6 h-6" />
-            </div>
-            <h3 className="text-base sm:text-lg md:text-xl font-bold mb-1 text-white">
-              LNG선 멤브레인 화물창 정밀 레이저 검사
-            </h3>
-            <p className="text-slate-300 text-xs sm:text-[13px] max-w-sm mb-3.5 leading-relaxed font-normal">
-              HD현대삼호의 주력 친환경 선종! 극저온(-163°C) 스테인리스 멤브레인 주름판의 용접 시임(Seam) 결함을 전수 조치하세요.
-            </p>
-            <div className="flex flex-col gap-1.5 text-xs text-slate-300 bg-slate-900/80 p-3 rounded-xl border border-slate-800 mb-4 max-w-xs text-left">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
-                <span>마우스/터치로 탐촉자를 용접선 위로 이동</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
-                <span>결함 발견 시 클릭/홀드로 초정밀 레이저 조사</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                <span>게이지 100% 달성 시 무결점 품질 합격</span>
-              </div>
-            </div>
-            <button
-              onClick={startGame}
-              className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center gap-2 transition-all active:scale-95"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>정밀 검사 시작</span>
-            </button>
+      {/* Floating Center Feedback */}
+      {feedback && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 pointer-events-none z-10 animate-in fade-in duration-150">
+          <div
+            className="px-4 py-1.5 rounded-full font-black text-[12px] shadow-xl border bg-slate-900/90 backdrop-blur-md whitespace-nowrap"
+            style={{ color: feedback.color, borderColor: `${feedback.color}40` }}
+          >
+            {feedback.text}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* GAMEOVER Overlay */}
-        {gameState === "GAMEOVER" && (
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white z-20 animate-in fade-in duration-200">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-2.5 text-emerald-400">
-              <ShieldCheck className="w-7 h-7" />
-            </div>
-            <span className="text-[10px] font-bold text-emerald-400 tracking-widest uppercase mb-1">DNV/KR 선급 합격</span>
-            <h3 className="text-base sm:text-lg md:text-xl font-bold mb-1 text-white">화물창 NDT 비파괴 검사 완료</h3>
-            <p className="text-xs text-slate-300 mb-3 max-w-sm font-normal">선급 극저온 밀폐 안전 적합 판정이 승인되었습니다.</p>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 w-full max-w-xs mb-4 shadow-md space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">최종 획득 점수</span>
-                <span className="text-base font-bold text-amber-400 tabular-nums">{score.toLocaleString()}점</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">조치 완료 결함</span>
-                <span className="font-bold text-emerald-400 tabular-nums">
-                  {clearedCount} / {defectCount} ({defectCount > 0 ? Math.round((clearedCount / defectCount) * 100) : 100}%)
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">품질 인증 등급</span>
-                <span className="font-bold text-cyan-400">
-                  {clearedCount === defectCount ? "AAA (무결점 명품선박)" : clearedCount >= 10 ? "AA (우수)" : "A (보통)"}
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={startGame}
-              className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center gap-2 transition-all active:scale-95"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>재검사 도전</span>
-            </button>
+      {/* Start / Game Over Modal Screen */}
+      {gameState !== "PLAYING" && (
+        <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 z-20 text-center animate-in fade-in duration-200">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mb-3 shadow-xl shadow-emerald-500/20">
+            <Scan className="w-7 h-7 text-white stroke-[2.5]" />
           </div>
-        )}
+
+          <h3 className="text-lg sm:text-xl font-black text-white mb-1.5 tracking-tight">
+            {gameState === "READY" ? "LNG 극저온 멤브레인 레이저 검사" : "비파괴 레이저 검사 완료"}
+          </h3>
+
+          <p className="text-xs sm:text-[13px] text-slate-300 max-w-md mb-5 leading-relaxed">
+            {gameState === "READY"
+              ? "영하 163°C 극저온 LNG 화물창 스테인리스 멤브레인의 결함 탐지! 결함 색상(청색 120kHz / 황색 240kHz / 적색 480kHz)에 맞춰 하단 버튼이나 숫자키[1, 2, 3]로 전환한 뒤 클릭하여 레이저로 격파하세요."
+              : `최종 검사 점수: ${score.toLocaleString()}점 (제거한 결함: ${clearedCount}개 / 최대 ${stateRef.current.maxCombo}콤보)`}
+          </p>
+
+          <button
+            onClick={startGame}
+            className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-sm rounded-xl shadow-lg shadow-emerald-500/30 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+          >
+            {gameState === "READY" ? <Play className="w-4 h-4 fill-current" /> : <RotateCcw className="w-4 h-4" />}
+            <span>{gameState === "READY" ? "초정밀 레이저 검사 시작" : "다시 검사하기"}</span>
+          </button>
+        </div>
+      )}
+
       </div>
 
-      {/* Footer Instructions */}
-      <div className="w-full mt-2 bg-slate-900/90 border border-slate-800 p-2 sm:p-2.5 rounded-xl text-[11px] text-slate-400 flex items-center justify-between">
-        <span>💡 팁: 결함 위에서 클릭/터치를 유지하면 초정밀 레이저 펄스로 즉시 결함을 용삭 조치합니다.</span>
-        <span className="text-slate-500 font-mono hidden sm:inline">HD KSOE Cryogenic QC v2.4</span>
+      {/* Dedicated Bottom Frequency Selector Bar - Outside the canvas so buttons never obscure flaws! */}
+      <div className="px-3 py-2 bg-slate-900 border-t border-slate-800 shrink-0 z-10 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">레이저 주파수:</span>
+          <button
+            onClick={() => switchFrequency(120)}
+            className={`px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5 transition-all active:scale-95 border cursor-pointer ${
+              activeFreq === 120
+                ? "bg-cyan-500 text-slate-950 border-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.5)]"
+                : "bg-slate-800 text-cyan-400 border-slate-700 hover:bg-slate-700"
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5" />
+            <span>[1] 120kHz (미세 균열)</span>
+          </button>
+
+          <button
+            onClick={() => switchFrequency(240)}
+            className={`px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5 transition-all active:scale-95 border cursor-pointer ${
+              activeFreq === 240
+                ? "bg-amber-500 text-slate-950 border-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)]"
+                : "bg-slate-800 text-amber-400 border-slate-700 hover:bg-slate-700"
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5" />
+            <span>[2] 240kHz (기공 결함)</span>
+          </button>
+
+          <button
+            onClick={() => switchFrequency(480)}
+            className={`px-3 py-1.5 rounded-lg font-black text-xs flex items-center gap-1.5 transition-all active:scale-95 border cursor-pointer ${
+              activeFreq === 480
+                ? "bg-rose-500 text-slate-950 border-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.5)]"
+                : "bg-slate-800 text-rose-400 border-slate-700 hover:bg-slate-700"
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5" />
+            <span>[3] 480kHz (헬륨 누설)</span>
+          </button>
+        </div>
+
+        <div className="text-[11px] text-slate-400 font-mono hidden md:block">
+          키보드 [1], [2], [3] 즉시 전환 가능 · 결함 색상과 일치시켜 격파
+        </div>
       </div>
     </div>
   );

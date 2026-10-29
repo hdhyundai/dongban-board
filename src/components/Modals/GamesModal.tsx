@@ -16,6 +16,7 @@ import {
   ArrowLeftRight,
   ShieldCheck,
   Building2,
+  Wrench,
 } from "lucide-react";
 import { db } from "../../lib/firebase";
 import {
@@ -35,7 +36,7 @@ import CraneStackGame from "../Games/CraneStackGame";
 import GoliathTurnoverGame from "../Games/GoliathTurnoverGame";
 import WeldingMasterGame from "../Games/WeldingMasterGame";
 import EngineRoomPipeGame from "../Games/EngineRoomPipeGame";
-import PaintBlasterGame from "../Games/PaintBlasterGame";
+import HydraulicBoltingGame from "../Games/HydraulicBoltingGame";
 import DockWaterGame from "../Games/DockWaterGame";
 import TugboatPilotGame from "../Games/TugboatPilotGame";
 import AnchorMooringGame from "../Games/AnchorMooringGame";
@@ -54,12 +55,9 @@ interface GamesModalProps {
   onClose: () => void;
 }
 
-const getWeekString = () => {
+const getMonthString = () => {
   const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  d.setDate(d.getDate() - day);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
 export default function GamesModal({ onClose }: GamesModalProps) {
@@ -103,9 +101,9 @@ export default function GamesModal({ onClose }: GamesModalProps) {
   const fetchLeaderboard = async (gameId: string) => {
     setLoadingBoard(true);
     try {
-      const weekStr = getWeekString();
+      const monthStr = getMonthString();
       const q = query(
-        collection(db, `games/${gameId}/weekly_scores/${weekStr}/scores`),
+        collection(db, `games/${gameId}/monthly_scores/${monthStr}/scores`),
         orderBy("score", "desc"),
         limit(50)
       );
@@ -134,8 +132,8 @@ export default function GamesModal({ onClose }: GamesModalProps) {
   const saveScore = async (score: number) => {
     try {
       const docId = currentUser?.email || playerName;
-      const weekStr = getWeekString();
-      const docRef = doc(db, `games/${activeGame}/weekly_scores/${weekStr}/scores`, docId);
+      const monthStr = getMonthString();
+      const docRef = doc(db, `games/${activeGame}/monthly_scores/${monthStr}/scores`, docId);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
@@ -157,25 +155,25 @@ export default function GamesModal({ onClose }: GamesModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 lg:p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white rounded-[20px] lg:rounded-[28px] shadow-2xl w-full max-w-6xl flex flex-col lg:flex-row overflow-hidden border border-gray-200 max-h-[96vh] lg:max-h-[92vh]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-1 sm:p-3 lg:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-white rounded-[16px] lg:rounded-[28px] shadow-2xl w-full max-w-7xl flex flex-col lg:flex-row overflow-hidden border border-gray-200 h-[98vh] lg:h-[92vh] max-h-[98vh] lg:max-h-[92vh]">
         {/* Sidebar */}
-        <div className="w-full lg:w-72 bg-slate-50 lg:border-r border-b lg:border-b-0 border-gray-200 p-3 lg:p-5 flex flex-col shrink-0 lg:overflow-y-auto">
-          <div className="flex justify-between items-center mb-3 lg:mb-4">
-            <h2 className="text-[17px] lg:text-[19px] font-black text-[#002C6C] flex items-center gap-2 tracking-tight">
-              <Building2 className="w-5 h-5 text-amber-500" />
+        <div className="w-full lg:w-64 xl:w-72 bg-slate-50 lg:border-r border-b lg:border-b-0 border-gray-200 p-2 sm:p-3 lg:p-5 flex flex-col shrink-0 lg:overflow-y-auto">
+          <div className="flex justify-between items-center mb-1.5 lg:mb-4">
+            <h2 className="text-[15px] lg:text-[19px] font-black text-[#002C6C] flex items-center gap-1.5 lg:gap-2 tracking-tight">
+              <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-amber-500" />
               HD조선소 아케이드
             </h2>
             <button
               onClick={onClose}
-              className="lg:hidden p-2 bg-gray-200 rounded-full text-gray-500 active:scale-95"
+              className="lg:hidden p-1.5 bg-gray-200 rounded-full text-gray-600 active:scale-95"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Game Selection Tabs */}
-          <div className="flex flex-row lg:flex-col gap-1.5 mb-2 lg:mb-6 overflow-x-auto custom-scrollbar pb-3 lg:pb-0">
+          <div className="flex flex-row lg:flex-col gap-1 lg:gap-1.5 mb-1 lg:mb-6 overflow-x-auto custom-scrollbar pb-1 lg:pb-0">
             {/* Category 1: 중장비 & 건조 엔지니어링 */}
             <div className="hidden lg:block text-[11px] font-black text-slate-400 px-3 py-1 uppercase tracking-wider">
               중장비 & 선체 건조
@@ -192,7 +190,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
               id="turnover"
               icon={<ArrowLeftRight className="w-4 h-4 text-orange-500" />}
               label="900T 블록 턴오버"
-              badge="신규"
+              badge="물리 연산"
               active={activeGame}
               onClick={setActiveGame}
             />
@@ -213,9 +211,10 @@ export default function GamesModal({ onClose }: GamesModalProps) {
               onClick={setActiveGame}
             />
             <GameTab
-              id="paint"
-              icon={<Brush className="w-4 h-4 text-pink-500" />}
-              label="선체 친환경 에어리스 도장"
+              id="bolting"
+              icon={<Wrench className="w-4 h-4 text-sky-500" />}
+              label="엔진·축계 유압 볼팅"
+              badge="쾌속 리듬"
               active={activeGame}
               onClick={setActiveGame}
             />
@@ -225,18 +224,26 @@ export default function GamesModal({ onClose }: GamesModalProps) {
               도크 진수 & 시운전 작전
             </div>
             <GameTab
-              id="dockwater"
-              icon={<Waves className="w-4 h-4 text-cyan-500" />}
-              label="드라이도크 안전 진수식"
-              badge="물리"
+              id="tugboat"
+              icon={<Compass className="w-4 h-4 text-sky-500" />}
+              label="영암호 예인선 파일럿"
+              badge="조종술"
               active={activeGame}
               onClick={setActiveGame}
             />
             <GameTab
-              id="tugboat"
-              icon={<Compass className="w-4 h-4 text-sky-500" />}
-              label="영암호 예인선 하버 파일럿"
-              badge="인기"
+              id="voyager"
+              icon={<Compass className="w-4 h-4 text-indigo-500" />}
+              label="영암만 Sea Trial 시운전"
+              badge="쾌속"
+              active={activeGame}
+              onClick={setActiveGame}
+            />
+            <GameTab
+              id="dockwater"
+              icon={<Waves className="w-4 h-4 text-cyan-500" />}
+              label="드라이도크 안전 진수식"
+              badge="부력 수위"
               active={activeGame}
               onClick={setActiveGame}
             />
@@ -260,15 +267,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
               id="lnginspect"
               icon={<Scan className="w-4 h-4 text-emerald-500" />}
               label="LNG 멤브레인 레이저 검사"
-              badge="하이테크"
-              active={activeGame}
-              onClick={setActiveGame}
-            />
-            <GameTab
-              id="voyager"
-              icon={<Compass className="w-4 h-4 text-indigo-500" />}
-              label="영암만 Sea Trial 시운전"
-              badge="쾌속"
+              badge="초정밀 NDT"
               active={activeGame}
               onClick={setActiveGame}
             />
@@ -287,21 +286,21 @@ export default function GamesModal({ onClose }: GamesModalProps) {
         </div>
 
         {/* Main Game Screen */}
-        <div className="flex-1 flex flex-col bg-slate-900 relative min-h-[440px] lg:min-h-0 overflow-y-auto">
+        <div className="flex-1 flex flex-col bg-slate-900 relative h-full min-h-0 overflow-hidden">
           <button
             onClick={onClose}
-            className="hidden lg:flex absolute top-4 right-4 p-2.5 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300 shadow-sm border border-slate-700 transition-all z-20 active:scale-95"
+            className="hidden lg:flex absolute top-3 right-3 p-2 bg-slate-800/90 hover:bg-slate-700 rounded-full text-slate-300 shadow-sm border border-slate-700 transition-all z-30 active:scale-95"
             title="닫기"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
 
-          <div className="flex-1 p-2 sm:p-3 lg:p-4 flex flex-col items-center justify-center relative min-h-0 w-full font-hd">
+          <div className="flex-1 p-1 sm:p-2 lg:p-3 flex flex-col items-center justify-center relative h-full min-h-0 w-full overflow-hidden font-hd">
             {activeGame === "crane" && <CraneStackGame onFinish={saveScore} />}
             {activeGame === "turnover" && <GoliathTurnoverGame onFinish={saveScore} />}
             {activeGame === "welding" && <WeldingMasterGame onFinish={saveScore} />}
             {activeGame === "pipe" && <EngineRoomPipeGame onFinish={saveScore} />}
-            {activeGame === "paint" && <PaintBlasterGame onFinish={saveScore} />}
+            {(activeGame === "bolting" || activeGame === "paint") && <HydraulicBoltingGame onFinish={saveScore} />}
             {activeGame === "dockwater" && <DockWaterGame onFinish={saveScore} />}
             {activeGame === "tugboat" && <TugboatPilotGame onFinish={saveScore} />}
             {activeGame === "mooring" && <AnchorMooringGame onFinish={saveScore} />}
@@ -311,28 +310,28 @@ export default function GamesModal({ onClose }: GamesModalProps) {
           </div>
         </div>
 
-        {/* Weekly Leaderboard Panel */}
-        <div className="w-full lg:w-72 bg-[#121824] text-white flex flex-col shrink-0 border-l border-slate-800">
+        {/* Monthly Leaderboard Panel */}
+        <div className="w-full lg:w-64 xl:w-72 bg-[#121824] text-white flex flex-col shrink-0 border-l border-slate-800">
           <button
             onClick={() => setIsLeaderboardOpen(!isLeaderboardOpen)}
-            className="lg:hidden w-full flex items-center justify-between p-4 bg-slate-900 border-t border-slate-800"
+            className="lg:hidden w-full flex items-center justify-between p-2.5 sm:p-3 bg-slate-900 border-t border-slate-800"
           >
-            <div className="font-bold text-[15px] flex items-center gap-2 text-amber-400">
-              <Trophy className="w-4 h-4 fill-current" /> 주간 명예의 전당
+            <div className="font-bold text-[13px] flex items-center gap-1.5 text-amber-400">
+              <Trophy className="w-4 h-4 fill-current" /> 월간 명예의 전당
             </div>
-            {isLeaderboardOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            {isLeaderboardOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
 
           <div
-            className={`${isLeaderboardOpen ? "flex" : "hidden"} lg:flex flex-col flex-1 p-4 lg:p-5 h-[280px] lg:h-auto overflow-hidden`}
+            className={`${isLeaderboardOpen ? "flex" : "hidden"} lg:flex flex-col flex-1 p-3 lg:p-5 h-[240px] lg:h-auto overflow-hidden`}
           >
             <div className="hidden lg:flex items-center justify-between mb-4 pb-2 border-b border-white/10">
               <h3 className="text-[15px] font-black text-white flex items-center gap-2">
                 <Medal className="w-4 h-4 text-amber-400" />
-                주간 명예의 전당
+                월간 명예의 전당
               </h3>
               <span className="text-[10px] font-bold text-gray-400 bg-white/10 px-2 py-0.5 rounded-full">
-                이번 주
+                {new Date().getMonth() + 1}월 랭킹
               </span>
             </div>
 

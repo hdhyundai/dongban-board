@@ -132,6 +132,10 @@ class GameSoundEngine {
     osc.stop(now + 0.35);
   }
 
+  public playCombo(combo: number = 1) {
+    this.playPerfect(combo);
+  }
+
   // Coin / item pickup
   public playPickup() {
     if (this.isMuted) return;
@@ -313,6 +317,23 @@ class GameSoundEngine {
       osc.start(start);
       osc.stop(start + 0.3);
     });
+  }
+
+  // Generic game events
+  public playStart() {
+    this.playPowerup();
+  }
+
+  public playFailure() {
+    this.playGameOver();
+  }
+
+  public playError() {
+    this.playWhack(false);
+  }
+
+  public playPop() {
+    this.playPickup();
   }
 
   // Shipyard specific audio effects

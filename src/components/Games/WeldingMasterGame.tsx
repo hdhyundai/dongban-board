@@ -146,10 +146,32 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
     return () => clearInterval(timer);
   }, [isPlaying, stageComplete, gameOver, totalScore]);
 
-  // Main Canvas Render & Game Loop
-  useEffect(() => {
-    if (!isPlaying) return;
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
+  // ResizeObserver for 100% responsive fit inside modal
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 50 && height > 50) {
+          logicalSizeRef.current = { width, height };
+          // If path already exists, proportionally scale it
+          if (seamPathRef.current.length > 0) {
+            seamPathRef.current = generatePath(stage, width, height);
+          }
+        }
+      }
+    });
+
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [stage]);
+
+  // Main Canvas Render & Game Loop - runs continuously so plate and seam are always clearly visible
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -162,21 +184,21 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
       lastTimeRef.current = time;
 
       // Handle HiDPI & Resize dynamically
-      const rect = canvas.getBoundingClientRect();
+      const container = containerRef.current;
+      const rect = container ? container.getBoundingClientRect() : canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = rect.width > 0 ? rect.width : logicalSizeRef.current.width;
-      const h = rect.height > 0 ? rect.height : logicalSizeRef.current.height;
+      const w = Math.max(300, rect.width > 0 ? rect.width : logicalSizeRef.current.width);
+      const h = Math.max(220, rect.height > 0 ? rect.height : logicalSizeRef.current.height);
 
       const bufW = Math.round(w * dpr);
       const bufH = Math.round(h * dpr);
       if (canvas.width !== bufW || canvas.height !== bufH) {
         canvas.width = bufW;
         canvas.height = bufH;
-        // If logical size changed significantly, regenerate path to match
-        if (Math.abs(logicalSizeRef.current.width - w) > 30 || Math.abs(logicalSizeRef.current.height - h) > 30) {
-          logicalSizeRef.current = { width: w, height: h };
-          seamPathRef.current = generatePath(stage, w, h);
-        }
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        logicalSizeRef.current = { width: w, height: h };
+        seamPathRef.current = generatePath(stage, w, h);
       }
 
       // If seam path is not generated yet, generate now
@@ -604,50 +626,52 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col items-center select-none font-hd">
-      {/* Top Header */}
-      <div className="w-full bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-md mb-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
-            <Flame className="w-4 h-4 text-white" />
+    <div className="relative w-full h-full flex flex-col bg-slate-950 font-hd select-none overflow-hidden text-white">
+      {/* Top Header HUD */}
+      <div className="flex items-center justify-between px-3 py-2 bg-slate-900/95 border-b border-slate-800 shrink-0 z-10 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/30">
+            <Flame className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm sm:text-base font-bold text-white">용접 마스터: 선체 후판 비드 (FCAW)</h3>
-              <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+            <div className="text-xs font-black text-slate-100 flex items-center gap-1.5">
+              용접 마스터: 선체 후판 비드 (FCAW)
+              <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded font-bold">
                 STAGE {stage}/3
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-normal hidden sm:block">
-              청색 V-그루브 레이저 가이드를 따라 드래그하여 결함 없는 초정밀 비드를 완성하세요.
-            </p>
+            <div className="text-[10px] text-slate-400 hidden sm:block">
+              청색 V-그루브 레이저 가이드를 따라 정밀 비드를 시공하세요
+            </div>
           </div>
         </div>
 
         {/* Live Gauges */}
         <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">보호가스 잔여</span>
-            <span className={`text-xs sm:text-sm font-bold tabular-nums ${timeLeft <= 8 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
-              {timeLeft}초
+          <div className="bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium leading-tight">가스 잔여</span>
+            <span className={`text-xs font-bold tabular-nums ${timeLeft <= 8 ? "text-rose-400 animate-pulse" : "text-amber-400"}`}>
+              {timeLeft}s
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">용접 진행도</span>
-            <span className="text-xs sm:text-sm font-bold text-cyan-400 tabular-nums">
+          <div className="bg-slate-800/80 px-2 py-1 rounded-md border border-slate-700/60 text-center">
+            <span className="text-slate-400 block text-[9px] font-medium leading-tight">진행도</span>
+            <span className="text-xs font-bold text-cyan-400 tabular-nums">
               {seamPathRef.current.length > 0 ? Math.round((currentPathIdxRef.current / seamPathRef.current.length) * 100) : 0}%
             </span>
           </div>
 
-          <div className="bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60 text-center">
-            <span className="text-slate-400 block text-[9px] font-medium">누적 점수</span>
-            <span className="text-xs sm:text-sm font-bold text-amber-400 tabular-nums">{totalScore.toLocaleString()}점</span>
+          <div className="flex items-center gap-1.5 bg-amber-950/80 px-2.5 py-1 rounded-md border border-amber-700">
+            <Award className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-xs sm:text-sm font-black text-amber-300 tabular-nums">
+              {totalScore.toLocaleString()}점
+            </span>
           </div>
 
           <button
             onClick={toggleSound}
-            className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-300 transition-all active:scale-95 shrink-0"
+            className="p-1 text-slate-400 hover:text-white transition-colors"
             title={isMuted ? "소리 켜기" : "음소거"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
@@ -655,31 +679,31 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
         </div>
       </div>
 
-      {/* Main Canvas Viewport - Calibrated height so seam is always centered and never clipped */}
-      <div className="w-full h-[320px] sm:h-[350px] md:h-[370px] relative rounded-xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 flex items-center justify-center">
+      {/* Main Canvas Viewport - 100% flex height, fits container completely */}
+      <div ref={containerRef} className="relative flex-1 w-full min-h-0 overflow-hidden bg-slate-950">
         <canvas
           ref={canvasRef}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
-          className="w-full h-full cursor-crosshair touch-none block"
+          className="absolute inset-0 block w-full h-full cursor-crosshair touch-none"
         />
 
         {/* Start Overlay */}
         {!isPlaying && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center z-20 animate-in fade-in duration-200">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-3 text-amber-400 shadow-md">
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20 animate-in fade-in duration-200">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-2.5 text-amber-400 shadow-md">
               <Flame className="w-6 h-6" />
             </div>
-            <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1.5">선체 특수강 V-그루브 용접 마스터</h2>
-            <p className="text-slate-300 text-xs sm:text-[13px] max-w-sm mb-4 leading-relaxed font-normal">
-              화면 중앙의 <strong>청색 레이저 가이드 선</strong>을 따라 마우스를 누른 채<br />
+            <h2 className="text-sm sm:text-base font-bold text-white mb-1">선체 특수강 V-그루브 용접 마스터</h2>
+            <p className="text-slate-300 text-xs max-w-sm mb-4 leading-relaxed font-normal">
+              화면의 <strong>청색 레이저 가이드 선</strong>을 따라 마우스를 누른 채<br />
               일정한 속도로 이동하여 <strong>선급 기준(KR/DNV) 최고 등급</strong>의 비드를 용접하세요.
             </p>
             <button
               onClick={startGame}
-              className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <Play className="w-4 h-4 fill-slate-950" />
               아크 용접 시작
@@ -689,27 +713,27 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
 
         {/* Stage Complete Banner */}
         {isPlaying && stageComplete && !gameOver && (
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 z-20 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-2.5 text-emerald-400">
-              <CheckCircle2 className="w-7 h-7" />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 z-20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mb-2 text-emerald-400">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
             <span className="text-[10px] font-bold text-emerald-400 tracking-widest uppercase mb-1">STAGE PASSED</span>
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">
+            <h3 className="text-sm sm:text-base font-bold text-white mb-1">
               STAGE {stage} 비파괴 비드 검사 합격!
             </h3>
-            <div className="flex items-center gap-3 my-3">
-              <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-center">
-                <span className="text-[10px] text-slate-400 block mb-0.5">용접 품질 등급</span>
-                <span className="text-xl font-bold text-amber-400">{qualityGrade}</span>
+            <div className="flex items-center gap-3 my-2.5">
+              <div className="bg-slate-900 border border-slate-800 px-3.5 py-1.5 rounded-xl text-center">
+                <span className="text-[9px] text-slate-400 block">용접 품질 등급</span>
+                <span className="text-lg font-bold text-amber-400">{qualityGrade}</span>
               </div>
-              <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-center">
-                <span className="text-[10px] text-slate-400 block mb-0.5">누적 공정 점수</span>
-                <span className="text-xl font-bold text-emerald-400 tabular-nums">{totalScore.toLocaleString()}점</span>
+              <div className="bg-slate-900 border border-slate-800 px-3.5 py-1.5 rounded-xl text-center">
+                <span className="text-[9px] text-slate-400 block">누적 공정 점수</span>
+                <span className="text-lg font-bold text-emerald-400 tabular-nums">{totalScore.toLocaleString()}점</span>
               </div>
             </div>
             <button
               onClick={() => startStage(stage + 1)}
-              className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md active:scale-95 transition-all cursor-pointer"
+              className="px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md active:scale-95 transition-all cursor-pointer"
             >
               다음 스테이지 ({stage + 1}/3) 진행 →
             </button>
@@ -718,23 +742,23 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
 
         {/* Game Over Banner */}
         {gameOver && (
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 z-20 animate-in fade-in zoom-in-95 duration-200">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-2.5 ${stageComplete ? "bg-amber-500/20 text-amber-400" : "bg-rose-500/20 text-rose-400"}`}>
-              {stageComplete ? <Award className="w-7 h-7" /> : <AlertTriangle className="w-7 h-7" />}
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-4 z-20 animate-in fade-in zoom-in-95 duration-200">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-2 ${stageComplete ? "bg-amber-500/20 text-amber-400" : "bg-rose-500/20 text-rose-400"}`}>
+              {stageComplete ? <Award className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
             </div>
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-1">
+            <h3 className="text-sm sm:text-base font-bold text-white mb-1">
               {stageComplete ? "명품 선박 용접 공정 완수!" : "용접 보호가스 소진 / 공정 중단"}
             </h3>
-            <p className="text-slate-300 text-xs sm:text-[13px] mb-3 max-w-sm font-normal">
+            <p className="text-slate-300 text-xs mb-2.5 max-w-sm font-normal">
               {stageComplete ? "선급협회(KR/DNV) 규격을 만족하는 최고 품질 비드를 달성했습니다." : "제한시간 내에 비드를 완성하지 못했습니다."}
             </p>
-            <div className="bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-center mb-4 min-w-[180px]">
-              <span className="text-[10px] text-slate-400 block mb-0.5">최종 용접 점수</span>
-              <span className="text-xl sm:text-2xl font-bold text-amber-400 tabular-nums">{totalScore.toLocaleString()}점</span>
+            <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-center mb-3 min-w-[160px]">
+              <span className="text-[9px] text-slate-400 block">최종 용접 점수</span>
+              <span className="text-xl font-bold text-amber-400 tabular-nums">{totalScore.toLocaleString()}점</span>
             </div>
             <button
               onClick={startGame}
-              className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs sm:text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs sm:text-sm rounded-xl active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               다시 도전하기
@@ -744,12 +768,12 @@ export default function WeldingMasterGame({ onFinish }: WeldingMasterGameProps) 
       </div>
 
       {/* Bottom Specs Info */}
-      <div className="w-full mt-2 bg-slate-900/90 border border-slate-800 rounded-xl p-2 sm:p-2.5 flex items-center justify-between text-[11px] text-slate-400">
-        <div className="flex items-center gap-2">
+      <div className="px-3 py-1.5 bg-slate-900/95 border-t border-slate-800 shrink-0 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="flex items-center gap-1.5">
           <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>팁: 마우스 버튼을 누른 채 청색 가이드 라인을 따라 전진하면 아크가 점화되고 비드가 연속 생성됩니다.</span>
+          <span>마우스 버튼을 누른 채 청색 가이드 라인을 따라 전진하면 아크가 점화되고 비드가 생성됩니다.</span>
         </div>
-        <span className="text-slate-500 hidden sm:inline font-mono">EH36 High-Tensile Steel FCAW</span>
+        <span className="text-slate-500 hidden sm:inline font-mono">EH36 FCAW</span>
       </div>
     </div>
   );
