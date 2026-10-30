@@ -65,24 +65,13 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
   const [bowTensionDisplay, setBowTensionDisplay] = useState(40);
   const [sternTensionDisplay, setSternTensionDisplay] = useState(35);
 
-  // Keyboard input states
+  // Keyboard input states (strictly controls the currently active tugboat)
   const keysRef = useRef({
-    // Generic / Active Tug keys
     up: false,
     down: false,
     left: false,
     right: false,
     push: false,
-    // Dedicated Bow Tug keys (WASD)
-    bowUp: false,
-    bowDown: false,
-    bowLeft: false,
-    bowRight: false,
-    // Dedicated Stern Tug keys (Arrows)
-    sternUp: false,
-    sternDown: false,
-    sternLeft: false,
-    sternRight: false,
   });
 
   const activeTugRef = useRef<ActiveTugId>("BOW");
@@ -163,7 +152,33 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
   const switchActiveTug = (tug: ActiveTugId) => {
     setActiveTug(tug);
     activeTugRef.current = tug;
+    // Reset key states to prevent control bleeding across tugs
+    const k = keysRef.current;
+    k.up = false;
+    k.down = false;
+    k.left = false;
+    k.right = false;
+    k.push = false;
     gameAudio.playClick();
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (gameState !== "PLAYING") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const s = stateRef.current;
+    const distBow = Math.hypot(clickX - s.tugBow.x, clickY - s.tugBow.y);
+    const distStern = Math.hypot(clickX - s.tugStern.x, clickY - s.tugStern.y);
+
+    if (distBow <= 45) {
+      switchActiveTug("BOW");
+    } else if (distStern <= 45) {
+      switchActiveTug("STERN");
+    }
   };
 
   const startGame = () => {
@@ -173,6 +188,15 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
     s.shipDamage = 0;
     s.activeTugInputCount = 0;
     s.wakeParticles = [];
+
+    // Reset controls
+    keysRef.current = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      push: false,
+    };
 
     const midX = s.logicalW / 2;
 
@@ -245,13 +269,18 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
     onFinish(s.score);
   };
 
-  // Keyboard controls with dual support:
-  // - Tab or 1/2 key: Switch active tugboat
-  // - WASD: Direct Bow Tug or active tug
-  // - Arrow keys: Direct Stern Tug or active tug
+  // Keyboard controls:
+  // - Tab: Toggle between Bow (1호) and Stern (2호)
+  // - 1 key: Switch to Bow Tug (삼호 1호)
+  // - 2 key: Switch to Stern Tug (삼호 2호)
+  // - Arrow keys / WASD: Drive the currently active tugboat exclusively
+  // - Space: Max boost thrust for active tugboat
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const k = keysRef.current;
+      // Prevent browser scroll for game controls
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", " "].includes(e.key)) {
+        e.preventDefault();
+      }
 
       // Tug Switcher Keys
       if (e.key === "Tab") {
@@ -269,51 +298,27 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         return;
       }
 
-      // WASD Keys (Bow Tug or Active Tug)
-      if (e.key === "w" || e.key === "W") {
-        k.bowUp = true;
+      const k = keysRef.current;
+
+      // Primary movement inputs (apply to currently active tugboat)
+      if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") {
         k.up = true;
         stateRef.current.activeTugInputCount++;
       }
-      if (e.key === "s" || e.key === "S") {
-        k.bowDown = true;
+      if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") {
         k.down = true;
         stateRef.current.activeTugInputCount++;
       }
-      if (e.key === "a" || e.key === "A") {
-        k.bowLeft = true;
+      if (e.key === "a" || e.key === "A" || e.key === "ArrowLeft") {
         k.left = true;
         stateRef.current.activeTugInputCount++;
       }
-      if (e.key === "d" || e.key === "D") {
-        k.bowRight = true;
+      if (e.key === "d" || e.key === "D" || e.key === "ArrowRight") {
         k.right = true;
         stateRef.current.activeTugInputCount++;
       }
 
-      // Arrow Keys (Stern Tug or Active Tug)
-      if (e.key === "ArrowUp") {
-        k.sternUp = true;
-        k.up = true;
-        stateRef.current.activeTugInputCount++;
-      }
-      if (e.key === "ArrowDown") {
-        k.sternDown = true;
-        k.down = true;
-        stateRef.current.activeTugInputCount++;
-      }
-      if (e.key === "ArrowLeft") {
-        k.sternLeft = true;
-        k.left = true;
-        stateRef.current.activeTugInputCount++;
-      }
-      if (e.key === "ArrowRight") {
-        k.sternRight = true;
-        k.right = true;
-        stateRef.current.activeTugInputCount++;
-      }
-
-      if (e.key === " ") {
+      if (e.key === " " || e.key === "Space") {
         k.push = true;
         stateRef.current.activeTugInputCount++;
       }
@@ -321,41 +326,20 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
 
     const onKeyUp = (e: KeyboardEvent) => {
       const k = keysRef.current;
-      if (e.key === "w" || e.key === "W") {
-        k.bowUp = false;
+      if (e.key === "w" || e.key === "W" || e.key === "ArrowUp") {
         k.up = false;
       }
-      if (e.key === "s" || e.key === "S") {
-        k.bowDown = false;
+      if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") {
         k.down = false;
       }
-      if (e.key === "a" || e.key === "A") {
-        k.bowLeft = false;
+      if (e.key === "a" || e.key === "A" || e.key === "ArrowLeft") {
         k.left = false;
       }
-      if (e.key === "d" || e.key === "D") {
-        k.bowRight = false;
+      if (e.key === "d" || e.key === "D" || e.key === "ArrowRight") {
         k.right = false;
       }
 
-      if (e.key === "ArrowUp") {
-        k.sternUp = false;
-        k.up = false;
-      }
-      if (e.key === "ArrowDown") {
-        k.sternDown = false;
-        k.down = false;
-      }
-      if (e.key === "ArrowLeft") {
-        k.sternLeft = false;
-        k.left = false;
-      }
-      if (e.key === "ArrowRight") {
-        k.sternRight = false;
-        k.right = false;
-      }
-
-      if (e.key === " ") {
+      if (e.key === " " || e.key === "Space") {
         k.push = false;
       }
     };
@@ -420,26 +404,28 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         setTimeLeft(Math.max(0, Math.ceil(s.timeLeft)));
 
         // ------------------ DUAL TUGBOAT KINEMATICS ------------------
-        // Determine controls for Bow Tug vs Stern Tug
-        // If player uses WASD specifically, Bow gets WASD. If Arrows specifically, Stern gets Arrows.
-        // If user uses Touch/Generic buttons, current active tug gets k.up/k.down/k.left/k.right.
+        // Controls strictly drive the currently selected active tugboat:
+        // - 선수 1호 (BOW) 선택 시: 오직 1호만 추진·조타·부스트가 적용됩니다. 2호는 조종되지 않습니다.
+        // - 선미 2호 (STERN) 선택 시: 오직 2호만 추진·조타·부스트가 적용됩니다. 1호는 조종되지 않습니다.
         const currentActive = activeTugRef.current;
 
-        const isBowSteerLeft = k.bowLeft || (currentActive === "BOW" && k.left);
-        const isBowSteerRight = k.bowRight || (currentActive === "BOW" && k.right);
-        const isBowThrustUp = k.bowUp || (currentActive === "BOW" && k.up);
-        const isBowThrustDown = k.bowDown || (currentActive === "BOW" && k.down);
+        const isBowSteerLeft = currentActive === "BOW" && k.left;
+        const isBowSteerRight = currentActive === "BOW" && k.right;
+        const isBowThrustUp = currentActive === "BOW" && k.up;
+        const isBowThrustDown = currentActive === "BOW" && k.down;
+        const isBowBoost = currentActive === "BOW" && k.push;
 
-        const isSternSteerLeft = k.sternLeft || (currentActive === "STERN" && k.left);
-        const isSternSteerRight = k.sternRight || (currentActive === "STERN" && k.right);
-        const isSternThrustUp = k.sternUp || (currentActive === "STERN" && k.up);
-        const isSternThrustDown = k.sternDown || (currentActive === "STERN" && k.down);
+        const isSternSteerLeft = currentActive === "STERN" && k.left;
+        const isSternSteerRight = currentActive === "STERN" && k.right;
+        const isSternThrustUp = currentActive === "STERN" && k.up;
+        const isSternThrustDown = currentActive === "STERN" && k.down;
+        const isSternBoost = currentActive === "STERN" && k.push;
 
         const steerRate = 2.6; // rad/s for nimble ASD tugboats
 
         // 1. Bow Tug Propulsion (삼호 1호)
         let bowTargetSpeed = 0;
-        if (isBowThrustUp) bowTargetSpeed = (k.push && currentActive === "BOW") ? 100 : 75;
+        if (isBowThrustUp) bowTargetSpeed = isBowBoost ? 100 : 75;
         else if (isBowThrustDown) bowTargetSpeed = -40;
 
         s.tugBow.speed += (bowTargetSpeed - s.tugBow.speed) * Math.min(1, 4.8 * dt);
@@ -455,7 +441,7 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
 
         // 2. Stern Tug Propulsion (삼호 2호)
         let sternTargetSpeed = 0;
-        if (isSternThrustUp) sternTargetSpeed = (k.push && currentActive === "STERN") ? 100 : 75;
+        if (isSternThrustUp) sternTargetSpeed = isSternBoost ? 100 : 75;
         else if (isSternThrustDown) sternTargetSpeed = -40;
 
         s.tugStern.speed += (sternTargetSpeed - s.tugStern.speed) * Math.min(1, 4.8 * dt);
@@ -1045,13 +1031,16 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
             onClick={() => switchActiveTug("BOW")}
             className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTug === "BOW"
-                ? "bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-1 ring-amber-400"
+                ? "bg-amber-600 text-white shadow-md shadow-amber-600/30 ring-2 ring-amber-400"
                 : "text-slate-400 hover:text-white hover:bg-slate-800"
             }`}
             title="선수 예인선 조종 [단축키 1 또는 Tab]"
           >
-            <span className="w-2 h-2 rounded-full bg-amber-300 animate-pulse" />
+            <span className={`w-2 h-2 rounded-full ${activeTug === "BOW" ? "bg-amber-200 animate-pulse" : "bg-slate-600"}`} />
             선수 1호 (삼호호)
+            {activeTug === "BOW" && (
+              <span className="text-[10px] bg-amber-800/90 text-amber-100 px-1 rounded font-bold">조종중</span>
+            )}
             <span className="text-[10px] opacity-75 font-mono">{bowTensionDisplay}t</span>
           </button>
 
@@ -1059,13 +1048,16 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
             onClick={() => switchActiveTug("STERN")}
             className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTug === "STERN"
-                ? "bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-1 ring-sky-400"
+                ? "bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-2 ring-sky-400"
                 : "text-slate-400 hover:text-white hover:bg-slate-800"
             }`}
             title="선미 예인선 조종 [단축키 2 또는 Tab]"
           >
-            <span className="w-2 h-2 rounded-full bg-sky-300 animate-pulse" />
+            <span className={`w-2 h-2 rounded-full ${activeTug === "STERN" ? "bg-sky-200 animate-pulse" : "bg-slate-600"}`} />
             선미 2호 (제동호)
+            {activeTug === "STERN" && (
+              <span className="text-[10px] bg-sky-800/90 text-sky-100 px-1 rounded font-bold">조종중</span>
+            )}
             <span className="text-[10px] opacity-75 font-mono">{sternTensionDisplay}t</span>
           </button>
         </div>
@@ -1143,7 +1135,12 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
 
       {/* Main Canvas Viewport */}
       <div ref={mountRef} className="relative flex-1 w-full min-h-0 overflow-hidden bg-slate-900">
-        <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />
+        <canvas
+          ref={canvasRef}
+          onClick={handleCanvasClick}
+          className="absolute inset-0 block w-full h-full cursor-pointer"
+          title="예인선을 직접 클릭하거나 [Tab]/[1]/[2] 키로 조종 대상을 전환할 수 있습니다"
+        />
 
         {/* Alignment Guidance Pill at Top Center */}
         {gameState === "PLAYING" && (
@@ -1182,25 +1179,25 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
               ⚓ 선수 1호(삼호호)로 침로를 유도하고, 선미 2호(제동호)로 선체 회전과 속도를 제동하세요!
             </div>
             <p className="text-xs text-slate-300 max-w-lg mb-4 leading-relaxed font-normal">
-              1. <strong>[선수 1호기]</strong>는 배의 앞머리를 끌어 상단 <strong>[제1도크 정중선]</strong>으로 이끕니다.<br />
-              2. <strong>[선미 2호기]</strong>는 조류로 인한 선미 흔들림(Yaw)을 잡고 <strong>역추진으로 속도를 감속(0.7 kts 이하)</strong>시킵니다.<br />
-              3. <strong>[Tab]</strong> 또는 <strong>[1]/[2] 키</strong>로 예인선을 신속히 전환하여 무충격 정밀 접안을 달성하세요.
+              1. <strong>[선수 1호]</strong> 배 앞머리를 끌어 상단 <strong>[제1도크 정중선]</strong>으로 진입시킵니다.<br />
+              2. <strong>[선미 2호]</strong> 조류로 인한 회전(Yaw)을 잡고 <strong>역추진으로 속도를 감속(0.7 kts 이하)</strong>시킵니다.<br />
+              3. <strong>[1]/[2] 키</strong> 또는 <strong>[Tab]</strong>으로 예인선을 선택하면, <strong>선택된 예인선만 독립 조종</strong>됩니다.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-slate-300 mb-6 bg-slate-900/90 px-4 py-2.5 rounded-xl border border-slate-800">
               <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 bg-amber-950 border border-amber-600 rounded font-mono font-bold text-amber-300">
-                  선수 1호: W / A / S / D
+                <span className="px-2 py-1 bg-amber-950/90 border border-amber-600 rounded-lg font-mono font-bold text-amber-300">
+                  선수 1호 선택: [1] 키 또는 상단 버튼
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 bg-sky-950 border border-sky-600 rounded font-mono font-bold text-sky-300">
-                  선미 2호: ↑ / ← / ↓ / →
+                <span className="px-2 py-1 bg-sky-950/90 border border-sky-600 rounded-lg font-mono font-bold text-sky-300">
+                  선미 2호 선택: [2] 키 또는 상단 버튼
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 bg-slate-800 rounded font-mono font-bold text-emerald-300">
-                  [Tab] 전환 / [Space] 부스트
+                <span className="px-2 py-1 bg-slate-800 rounded-lg font-mono font-bold text-emerald-300">
+                  조종: 방향키(↑↓←→) / WASD | 전환: [Tab] | 부스트: [Space]
                 </span>
               </div>
             </div>
@@ -1274,12 +1271,16 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => switchActiveTug(activeTug === "BOW" ? "STERN" : "BOW")}
-            className="px-3 h-9 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border border-slate-700 rounded-lg flex items-center gap-1.5 text-xs font-bold text-amber-300 active:scale-95 transition-transform cursor-pointer"
-            title="현재 조종할 예인선을 전환합니다 [Tab 키]"
+            className={`px-3 h-9 border rounded-lg flex items-center gap-1.5 text-xs font-bold active:scale-95 transition-all cursor-pointer ${
+              activeTug === "BOW"
+                ? "bg-amber-950/80 border-amber-500 text-amber-300 hover:bg-amber-900/60"
+                : "bg-sky-950/80 border-sky-500 text-sky-300 hover:bg-sky-900/60"
+            }`}
+            title="현재 조종할 예인선을 전환합니다 [Tab 키 또는 1, 2키]"
           >
             <Sliders className="w-4 h-4" />
             <span>
-              선택 전환: <strong>{activeTug === "BOW" ? "선수 1호 → 선미 2호" : "선미 2호 → 선수 1호"}</strong>
+              조종 전환: <strong>{activeTug === "BOW" ? "선수 1호 조종 중 → [2호로 전환]" : "선미 2호 조종 중 → [1호로 전환]"}</strong>
             </span>
           </button>
         </div>
@@ -1337,7 +1338,7 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         </div>
 
         <div className="text-[11px] text-slate-400 hidden lg:block">
-          💡 선수 1호: <strong>[W/A/S/D]</strong> | 선미 2호: <strong>[방향키]</strong> (동시 제어 지원 / Tab키 전환)
+          💡 <strong>선택된 예인선 단독 조종</strong>: 방향키(↑↓←→) / WASD | 전환: <strong>[1]/[2] 키</strong> or <strong>[Tab]</strong> (화면 예인선 직접 클릭 가능)
         </div>
 
         {/* Max Boost Button */}
