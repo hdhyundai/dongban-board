@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Volume2, VolumeX, Scan, Zap, AlertTriangle, ShieldCheck, Award, Radio } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
+import { getGameCanvasFont } from "../../lib/gameFonts";
 
 interface LNGTankInspectGameProps {
   onFinish: (score: number) => void;
@@ -304,7 +305,7 @@ export default function LNGTankInspectGame({ onFinish }: LNGTankInspectGameProps
         ctx.strokeRect(d.x - 24, d.y - d.radius - 16, 48, 14);
 
         ctx.fillStyle = defectColor;
-        ctx.font = "bold 9px monospace";
+        ctx.font = getGameCanvasFont(9, "bold", true);
         ctx.textAlign = "center";
         ctx.fillText(`${d.requiredFreq}kHz`, d.x, d.y - d.radius - 6);
 
@@ -375,7 +376,7 @@ export default function LNGTankInspectGame({ onFinish }: LNGTankInspectGameProps
 
         // Frequency Label on Reticle
         ctx.fillStyle = retColor;
-        ctx.font = "black 10px monospace";
+        ctx.font = getGameCanvasFont(10, "black", true);
         ctx.textAlign = "center";
         ctx.fillText(`[${s.activeFreq}kHz]`, s.mouseX, s.mouseY + 40);
 

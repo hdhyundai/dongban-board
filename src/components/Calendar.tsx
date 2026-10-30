@@ -255,14 +255,14 @@ export default function Calendar({
   return (
     <div className="bg-white rounded-none sm:rounded-[28px] sm:shadow-sm flex-1 flex flex-col overflow-hidden min-h-0 border-b sm:border border-gray-300 border-x-0">
       {" "}
-      <div className="flex flex-col md:grid md:grid-cols-[minmax(0,1fr)_auto_auto] gap-2 md:gap-3 lg:gap-4 items-center px-3 sm:px-4 md:px-5 border-b border-gray-200 h-[58px] shrink-0 bg-white">
+      <div className="relative flex flex-col md:flex-row items-center justify-between px-3 sm:px-4 md:px-5 border-b border-gray-200 h-[58px] shrink-0 bg-white">
         <div
           ref={containerRef}
-          className="flex justify-start items-center gap-2 sm:gap-3 min-w-0 order-2 md:order-1 w-full md:w-auto overflow-hidden"
+          className="flex justify-start items-center gap-2 sm:gap-3 min-w-0 order-2 md:order-1 w-full md:w-auto overflow-hidden z-10"
         >
           <button
             onClick={handleToday}
-            className="hidden md:block w-[59px] shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 text-[13px] sm:text-[14px] font-bold text-[#1D1D1F] bg-[#E5E5EA] active:scale-95 hover:bg-gray-300 border border-gray-300 rounded-[8px] sm:rounded-[10px] transition-colors"
+            className="hidden md:block w-[59px] shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 text-[13px] sm:text-[14px] font-bold text-[#1D1D1F] bg-[#E5E5EA] active:scale-95 hover:bg-gray-300 border border-gray-300 rounded-[8px] sm:rounded-[10px] transition-colors cursor-pointer"
           >
             오늘
           </button>
@@ -270,7 +270,7 @@ export default function Calendar({
             <>
               <button
                 onClick={() => setShowBirthdayModal(true)}
-                className="hidden md:flex h-[39px] items-center gap-1.5 text-[12.5px] font-extrabold text-[#0D9488] bg-[#0D9488]/10 px-3 rounded-[8px] border border-[#0D9488]/20 transition-colors active:scale-95 hover:bg-[#0D9488]/20 text-left min-w-0"
+                className="hidden md:flex h-[39px] items-center gap-1.5 text-[12.5px] font-extrabold text-[#0D9488] bg-[#0D9488]/10 px-3 rounded-[8px] border border-[#0D9488]/20 transition-colors active:scale-95 hover:bg-[#0D9488]/20 text-left min-w-0 cursor-pointer"
               >
                 <span className="shrink-0">🎂 생일자</span>
                 <div
@@ -297,7 +297,7 @@ export default function Calendar({
             </>
           )}
         </div>
-        <div className="flex items-center justify-between md:justify-center md:gap-4 shrink-0 order-1 md:order-2 w-full md:w-auto px-1">
+        <div className="flex items-center justify-between md:justify-center md:absolute md:left-1/2 md:-translate-x-1/2 md:top-1/2 md:-translate-y-1/2 shrink-0 order-1 md:order-2 w-full md:w-auto px-1 z-20">
           <div className="flex justify-start flex-1 basis-0 md:hidden">
             <button
               onClick={handleToday}
@@ -306,19 +306,21 @@ export default function Calendar({
               오늘
             </button>
           </div>
-          <div className="flex items-center justify-center gap-1.5 sm:gap-4 shrink-0">
+          <div className="flex items-center justify-center gap-0.5 sm:gap-1 shrink-0">
             <button
               onClick={handlePrevMonth}
-              className="p-1.5 sm:p-2 active:scale-95 hover:bg-gray-100 border border-transparent hover:border-gray-200 rounded-full transition-colors text-[#48484A] hover:text-[#1D1D1F]"
+              className="p-1 sm:p-1.5 active:scale-95 hover:bg-gray-100 rounded-full transition-colors text-[#48484A] hover:text-[#1D1D1F] cursor-pointer"
+              title="이전 달"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <h2 className="text-[17px] sm:text-[20px] md:text-[22px] font-bold text-[#1D1D1F] tracking-tight min-w-[110px] sm:min-w-[140px] text-center whitespace-nowrap">
+            <h2 className="text-[17px] sm:text-[20px] md:text-[21px] font-bold text-[#1D1D1F] tracking-tight text-center whitespace-nowrap px-1 sm:px-1.5">
               {format(currentMonth, "yyyy년 M월")}
             </h2>
             <button
               onClick={handleNextMonth}
-              className="p-1.5 sm:p-2 active:scale-95 hover:bg-gray-100 border border-transparent hover:border-gray-200 rounded-full transition-colors text-[#48484A] hover:text-[#1D1D1F]"
+              className="p-1 sm:p-1.5 active:scale-95 hover:bg-gray-100 rounded-full transition-colors text-[#48484A] hover:text-[#1D1D1F] cursor-pointer"
+              title="다음 달"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -335,7 +337,7 @@ export default function Calendar({
             )}
           </div>
         </div>
-        <div className="hidden md:flex items-center justify-end gap-1 sm:gap-1.5 lg:gap-2 xl:gap-2.5 order-3 shrink-0 flex-nowrap whitespace-nowrap min-w-max">
+        <div className="hidden md:flex items-center justify-end gap-1 sm:gap-1.5 lg:gap-2 xl:gap-2.5 order-3 shrink-0 flex-nowrap whitespace-nowrap min-w-max z-10">
           {TEAMS.filter((t) => t.id !== "t_notice").map((team) => (
             <span
               key={team.id}

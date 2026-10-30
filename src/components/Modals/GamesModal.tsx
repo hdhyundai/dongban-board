@@ -155,10 +155,10 @@ export default function GamesModal({ onClose }: GamesModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-1 sm:p-2 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white rounded-[16px] lg:rounded-[24px] shadow-2xl w-full max-w-[99vw] xl:max-w-[1880px] flex flex-col lg:flex-row overflow-hidden border border-gray-200 h-[97vh] max-h-[98vh]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 lg:p-6 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-5xl xl:max-w-6xl flex flex-col lg:flex-row overflow-hidden border border-gray-200 h-[88vh] max-h-[760px] min-h-[500px] font-hd">
         {/* Compact Sidebar */}
-        <div className="w-full lg:w-52 xl:w-56 bg-slate-50 lg:border-r border-b lg:border-b-0 border-gray-200 p-2 sm:p-2.5 flex flex-col shrink-0 lg:overflow-y-auto">
+        <div className="w-full lg:w-52 xl:w-56 bg-slate-50 lg:border-r border-b lg:border-b-0 border-gray-200 p-2.5 flex flex-col shrink-0 lg:overflow-y-auto">
           <div className="flex justify-between items-center mb-1 lg:mb-3">
             <h2 className="text-[14px] lg:text-[17px] font-black text-[#002C6C] flex items-center gap-1.5 tracking-tight">
               <Building2 className="w-4 h-4 text-amber-500" />
@@ -288,17 +288,17 @@ export default function GamesModal({ onClose }: GamesModalProps) {
         {/* Main Game Screen */}
         <div className="flex-1 flex flex-col bg-slate-900 relative h-full min-h-0 overflow-hidden">
           {/* Top Control Bar for Large Screen */}
-          <div className="hidden lg:flex items-center justify-between px-3 py-1.5 bg-slate-950/70 border-b border-slate-800 z-30 shrink-0">
+          <div className="hidden lg:flex items-center justify-between px-3.5 py-2 bg-slate-950/70 border-b border-slate-800 z-30 shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-300">
-                화면 최적화 모드 (전체 너비 가동)
+                HD현대삼호 조선소 아케이드
               </span>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsLeaderboardOpen(!isLeaderboardOpen)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
                   isLeaderboardOpen
                     ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
                     : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
@@ -306,7 +306,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
                 title="월간 랭킹 패널 토글"
               >
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                {isLeaderboardOpen ? "월간 랭킹 접기 [화면 극대화]" : "월간 랭킹 보기"}
+                {isLeaderboardOpen ? "랭킹 닫기" : "월간 랭킹"}
               </button>
 
               <button

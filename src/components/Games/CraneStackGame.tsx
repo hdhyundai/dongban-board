@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Volume2, VolumeX, Sparkles, Trophy, Anchor } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
+import { getGameCanvasFont } from "../../lib/gameFonts";
 
 interface CraneStackGameProps {
   onFinish: (score: number) => void;
@@ -391,7 +392,7 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
         // Name on block
         if (b.width > 70 && idx > 0) {
           ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-          ctx.font = "bold 10px sans-serif";
+          ctx.font = getGameCanvasFont(10, "bold");
           ctx.textAlign = "center";
           ctx.fillText(b.type, b.x + b.width / 2, b.y + 18);
         }
@@ -435,7 +436,7 @@ export default function CraneStackGame({ onFinish }: CraneStackGameProps) {
         ctx.strokeRect(curr.x, curr.y, curr.width, curr.height);
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 11px sans-serif";
+        ctx.font = getGameCanvasFont(11, "bold");
         ctx.textAlign = "center";
         ctx.fillText(curr.type, curr.x + curr.width / 2, curr.y + 18);
 

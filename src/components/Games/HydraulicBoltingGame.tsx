@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Volume2, VolumeX, Wrench, Award, Zap, ShieldCheck, AlertCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
+import { getGameCanvasFont } from "../../lib/gameFonts";
 
 interface HydraulicBoltingGameProps {
   onFinish: (score: number) => void;
@@ -447,7 +448,7 @@ export default function HydraulicBoltingGame({ onFinish }: HydraulicBoltingGameP
 
         // Sequence number badge
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 9px sans-serif";
+        ctx.font = getGameCanvasFont(9, "black");
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(`${i + 1}`, 0, 0);
@@ -506,7 +507,7 @@ export default function HydraulicBoltingGame({ onFinish }: HydraulicBoltingGameP
 
       // Digital Torque Readout in Center
       ctx.fillStyle = "#38bdf8";
-      ctx.font = "bold 11px monospace";
+      ctx.font = getGameCanvasFont(11, "bold", true);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       const liveEstimatedTorque = Math.round(config.targetTorque * (0.65 + stateRef.current.needleAngle * 0.7));

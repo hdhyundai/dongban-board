@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Volume2, VolumeX, Compass, ShieldAlert, Award, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Anchor, Link2 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
+import { getGameCanvasFont } from "../../lib/gameFonts";
 
 interface TugboatPilotGameProps {
   onFinish: (score: number) => void;
@@ -13,12 +14,14 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
 
   const [gameState, setGameState] = useState<"READY" | "PLAYING" | "GAMEOVER" | "SUCCESS">("READY");
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(55);
+  const [timeLeft, setTimeLeft] = useState(60);
   const [shipDamage, setShipDamage] = useState(0);
-  const [approachSpeedKts, setApproachSpeedKts] = useState(1.4);
+  const [approachSpeedKts, setApproachSpeedKts] = useState(0.5);
   const [isTowConnected, setIsTowConnected] = useState(false);
   const [failReason, setFailReason] = useState("");
   const [isMuted, setIsMuted] = useState(gameAudio.getMuted());
+  const [distToDock, setDistToDock] = useState(140);
+  const [alignmentText, setAlignmentText] = useState("정렬 대기");
 
   const keysRef = useRef<{ up: boolean; down: boolean; left: boolean; right: boolean; push: boolean }>({
     up: false,
@@ -88,20 +91,20 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
     s.tug.vx = 0;
     s.tug.vy = 0;
 
-    // Ship starts drifting under heavy cross-current towards right breakwater
-    s.ship.x = midX - 35;
-    s.ship.y = s.logicalH + 110;
-    s.ship.angle = 0.11;
-    s.ship.vx = 0.32;
-    s.ship.vy = -0.92;
-    s.ship.angularVelocity = 0.0019;
+    // Ship starts drifting under gentle cross-current towards right breakwater
+    s.ship.x = midX - 30;
+    s.ship.y = s.logicalH + 60;
+    s.ship.angle = 0.09;
+    s.ship.vx = 0.14;
+    s.ship.vy = -0.34;
+    s.ship.angularVelocity = 0.0012;
     s.isPlaying = true;
     s.lastTime = performance.now();
 
     setScore(0);
-    setTimeLeft(55);
+    setTimeLeft(60);
     setShipDamage(0);
-    setApproachSpeedKts(1.5);
+    setApproachSpeedKts(0.5);
     setIsTowConnected(false);
     setFailReason("");
     setGameState("PLAYING");
@@ -210,21 +213,21 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         }
         setTimeLeft(Math.max(0, Math.ceil(s.timeLeft)));
 
-        // 1. ASD TUGBOAT RESPONSIVE PROPULSION & STEERING
-        // Target forward/reverse speed
+        // 1. ASD TUGBOAT REALISTIC PROPULSION & STEERING
+        // Target forward/reverse speed (realistic harbor work speeds)
         let targetLinearSpeed = 0;
         if (k.up) {
-          targetLinearSpeed = k.push ? 240 : 175; // Powerful forward thrust
+          targetLinearSpeed = k.push ? 110 : 80; // Realistic harbor work speed
         } else if (k.down) {
-          targetLinearSpeed = -115; // Crisp reverse thrust
+          targetLinearSpeed = -45; // Gentle reverse backing
         }
 
-        // Rapid throttle response
-        const accelRate = targetLinearSpeed !== 0 ? 8.5 : 5.0;
+        // Throttle response
+        const accelRate = targetLinearSpeed !== 0 ? 5.5 : 3.5;
         s.tug.speed += (targetLinearSpeed - s.tug.speed) * Math.min(1, accelRate * dt);
 
-        // Steering: responsive azimuth pods
-        const steerRate = 3.6; // rad/s
+        // Steering: smooth azimuth turning
+        const steerRate = 2.4; // rad/s
         if (k.left) s.tug.angle -= steerRate * dt;
         if (k.right) s.tug.angle += steerRate * dt;
 
@@ -244,16 +247,16 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         s.tug.y = Math.max(30, Math.min(h - 20, s.tug.y));
 
         // Azimuth propeller wash / water foaming wake
-        if (Math.abs(s.tug.speed) > 20) {
+        if (Math.abs(s.tug.speed) > 15) {
           const wakeDir = s.tug.speed > 0 ? -1 : 1;
-          const wakeOriginDist = 20;
+          const wakeOriginDist = 18;
           for (let p = 0; p < 2; p++) {
             s.wakeParticles.push({
-              x: s.tug.x + forwardX * wakeOriginDist * wakeDir + (Math.random() - 0.5) * 8,
-              y: s.tug.y + forwardY * wakeOriginDist * wakeDir + (Math.random() - 0.5) * 8,
-              vx: forwardX * 60 * wakeDir + (Math.random() - 0.5) * 30,
-              vy: forwardY * 60 * wakeDir + (Math.random() - 0.5) * 30,
-              radius: 3 + Math.random() * 4,
+              x: s.tug.x + forwardX * wakeOriginDist * wakeDir + (Math.random() - 0.5) * 6,
+              y: s.tug.y + forwardY * wakeOriginDist * wakeDir + (Math.random() - 0.5) * 6,
+              vx: forwardX * 35 * wakeDir + (Math.random() - 0.5) * 15,
+              vy: forwardY * 35 * wakeDir + (Math.random() - 0.5) * 15,
+              radius: 2.5 + Math.random() * 3,
               life: 0.65,
               color: "rgba(224, 242, 254, 0.7)",
             });
@@ -271,8 +274,8 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         s.towConnected = canTow;
         setIsTowConnected(canTow);
 
-        // Cross-current drift constantly pushing dead ship rightward
-        s.ship.vx += (s.currentDriftX * dt) / 50;
+        // Gentle cross-current drift pushing dead ship rightward
+        s.ship.vx += (8 * dt) / 60;
 
         // Apply Towline tension force if connected
         if (s.towConnected) {
@@ -281,16 +284,16 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
           const tDist = Math.max(10, Math.hypot(tdx, tdy));
 
           // Tow pulling force proportional to tug thrust
-          const pullMag = (s.tug.speed > 50 ? 4.2 : s.tug.speed < -30 ? 2.8 : 1.8) * (tDist / 55);
+          const pullMag = (s.tug.speed > 30 ? 2.2 : s.tug.speed < -15 ? 1.4 : 0.8) * (tDist / 55);
           const pullX = (tdx / tDist) * pullMag;
           const pullY = (tdy / tDist) * pullMag;
 
-          // Pull directly steers ship and affects velocity!
-          s.ship.vx += pullX * dt * 1.2;
-          s.ship.vy += pullY * dt * 1.1;
-          s.ship.angularVelocity += (pullX * 0.0006) * dt * 40;
+          // Pull directly steers ship and affects velocity
+          s.ship.vx += pullX * dt * 0.7;
+          s.ship.vy += pullY * dt * 0.6;
+          s.ship.angularVelocity += (pullX * 0.0003) * dt * 25;
 
-          s.score += Math.round(dt * 130);
+          s.score += Math.round(dt * 120);
         }
 
         // Hull contact / Pushing mechanics
@@ -306,9 +309,9 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         const isContact = Math.abs(localX) < shipHalfW + 18 && Math.abs(localY) < shipHalfH + 18;
 
         if (isContact) {
-          const relativeSpeed = Math.hypot(s.tug.vx - s.ship.vx * 35, s.tug.vy - s.ship.vy * 35);
-          if (relativeSpeed > 190) {
-            s.shipDamage += 18;
+          const relativeSpeed = Math.hypot(s.tug.vx - s.ship.vx * 18, s.tug.vy - s.ship.vy * 18);
+          if (relativeSpeed > 110) {
+            s.shipDamage += 16;
             setShipDamage(Math.min(100, Math.round(s.shipDamage)));
             gameAudio.playFailure();
             if (s.shipDamage >= 100) {
@@ -317,31 +320,44 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
           }
 
           // Gentle pushing force rotates and brakes ship
-          const pushForce = k.push ? 4.2 : 2.0;
-          s.ship.vx += (forwardX * pushForce * dt) / 22;
-          s.ship.angularVelocity += ((localY > 0 ? -1 : 1) * forwardX * 0.001 * dt);
+          const pushForce = k.push ? 2.4 : 1.2;
+          s.ship.vx += (forwardX * pushForce * dt) / 25;
+          s.ship.angularVelocity += ((localY > 0 ? -1 : 1) * forwardX * 0.0006 * dt);
 
           // Pushing from bow front brakes forward momentum
           if (localY < -shipHalfH * 0.5 && forwardY > 0) {
-            s.ship.vy *= 0.94; // active braking
+            s.ship.vy *= 0.96; // active braking
           }
 
-          s.score += Math.round(pushForce * 20);
+          s.score += Math.round(pushForce * 15);
         }
 
-        // Water drag on massive dead ship
+        // Water drag on massive dead ship (slow majestic nautical glide)
         s.ship.vx *= 0.985;
-        s.ship.vy *= 0.992;
-        s.ship.angularVelocity *= 0.965;
+        s.ship.vy *= 0.993;
+        s.ship.angularVelocity *= 0.97;
 
-        s.ship.x += s.ship.vx * dt * 45;
-        s.ship.y += s.ship.vy * dt * 45;
-        s.ship.angle += s.ship.angularVelocity * dt * 45;
+        s.ship.x += s.ship.vx * dt * 18;
+        s.ship.y += s.ship.vy * dt * 18;
+        s.ship.angle += s.ship.angularVelocity * dt * 18;
 
-        // Knots calculation
+        // Knots calculation (realistic dead-slow harbor scale)
         const currentSpeedKts = Math.abs(s.ship.vy * 1.5).toFixed(1);
         setApproachSpeedKts(+currentSpeedKts);
         setScore(s.score);
+
+        // Distance to dock slip gate & Lateral alignment status
+        const distanceM = Math.max(0, Math.round((shipBowY - s.dockGateY) * 0.8));
+        setDistToDock(distanceM);
+
+        const deviationX = s.ship.x - (w / 2);
+        if (Math.abs(deviationX) < 18 && Math.abs(s.ship.angle) < 0.08) {
+          setAlignmentText("정렬 양호 (정중앙)");
+        } else if (deviationX < -18) {
+          setAlignmentText("좌측 편향 (우현으로 유도)");
+        } else {
+          setAlignmentText("우측 편향 (좌현으로 유도)");
+        }
 
         // Breakwater collisions
         const shipLeft = s.ship.x - shipHalfW;
@@ -361,11 +377,11 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         const midX = w / 2;
         if (shipBowY <= s.dockGateY + 15) {
           // Strict Docking Criteria
-          if (s.activeTugInputCount < 8) {
+          if (s.activeTugInputCount < 6) {
             triggerGameOver("예인 미조작 충돌! 예인선이 작동하지 않아 표류 선박이 안벽에 방치 충돌했습니다.");
-          } else if (Math.abs(s.ship.vy) > 0.54) {
+          } else if (Math.abs(s.ship.vy * 1.5) > 0.72) {
             triggerGameOver(
-              `안벽 고속 격돌 사고! 접근 속도(${currentSpeedKts} kts)가 안전 기준(0.8 kts 이하)을 초과하여 도크 안벽을 들이받았습니다.`
+              `안벽 고속 격돌 사고! 접근 속도(${currentSpeedKts} kts)가 안전 기준(0.7 kts 이하)을 초과하여 도크 안벽을 들이받았습니다.`
             );
           } else if (Math.abs(s.ship.x - midX) > 36) {
             triggerGameOver("도크 진입선 이탈! 도크 입구 돌출부 및 돌핀 안벽에 측면 충돌했습니다.");
@@ -427,45 +443,160 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         ctx.fillRect(w - quayW, y, 8, 14);
       }
 
-      // Dock Gate Target Berthing Slip
+      // ----------------- HIGH-VISIBILITY TARGET DOCK & BERTHING SLIP -----------------
       const midX = w / 2;
-      const gateW = 90;
+      const gateW = 95;
+      const dockDepth = s.dockGateY;
 
-      // Inner Dock Basin
-      ctx.fillStyle = "#0c4a6e";
-      ctx.fillRect(midX - gateW, 0, gateW * 2, s.dockGateY);
+      // 1. Drydock Inner Basin
+      ctx.fillStyle = "#032b43";
+      ctx.fillRect(midX - gateW, 0, gateW * 2, dockDepth);
 
-      // Target Berthing Slot Outline
-      ctx.strokeStyle = "#22c55e";
+      // Dock Head Concrete Wall at very top
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(midX - gateW - 20, 0, (gateW * 2) + 40, 22);
+
+      // Yellow/Black Hazard Stripes on Dock Head
+      for (let hx = midX - gateW - 20; hx <= midX + gateW + 20; hx += 24) {
+        ctx.fillStyle = (hx % 48 === 0) ? "#f59e0b" : "#0f172a";
+        ctx.fillRect(hx, 16, 24, 6);
+      }
+
+      // Overhead Gantry Crane / Dock Gate Signboard
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(midX - 140, 4, 280, 20);
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(midX - 140, 4, 280, 20);
+
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = getGameCanvasFont(11, "bold");
+      ctx.textAlign = "center";
+      ctx.fillText("🎯 HD현대삼호 제1드라이도크 접안 슬립 (TARGET BERTH)", midX, 18);
+
+      // 2. High-Visibility Glowing Holographic Ship Target Silhouette
+      const pulsePhase = Math.sin(now * 0.005);
+      const glowAlpha = 0.35 + pulsePhase * 0.15;
+
+      // Holographic Target Fill
+      ctx.fillStyle = `rgba(16, 185, 129, ${glowAlpha})`;
+      ctx.beginPath();
+      // Ship bow target shape inside dock
+      ctx.moveTo(midX, dockDepth - 4);
+      ctx.lineTo(midX + 28, dockDepth - 32);
+      ctx.lineTo(midX + 28, 26);
+      ctx.lineTo(midX - 28, 26);
+      ctx.lineTo(midX - 28, dockDepth - 32);
+      ctx.closePath();
+      ctx.fill();
+
+      // Holographic Neon Green Outline
+      ctx.save();
+      ctx.shadowColor = "#10b981";
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = "#34d399";
       ctx.lineWidth = 2.5;
-      ctx.setLineDash([6, 6]);
-      ctx.strokeRect(midX - 34, 10, 68, s.dockGateY + 10);
+      ctx.setLineDash([8, 4]);
+      ctx.stroke();
+      ctx.restore();
       ctx.setLineDash([]);
 
-      // Dock Gate Entrance Pillars
-      ctx.fillStyle = "#475569";
-      ctx.fillRect(midX - gateW - 14, s.dockGateY - 10, 16, 24);
-      ctx.fillRect(midX + gateW - 2, s.dockGateY - 10, 16, 24);
+      // Target Crosshair & Label inside the dock slip
+      ctx.fillStyle = "#ecfdf5";
+      ctx.font = getGameCanvasFont(10, "bold");
+      ctx.textAlign = "center";
+      ctx.fillText("★ 최종 접안 위치 (PARK HERE) ★", midX, 50);
 
-      // Green & Red Navigation Buoys
-      ctx.fillStyle = "#22c55e";
-      ctx.beginPath();
-      ctx.arc(midX + gateW, s.dockGateY + 12, 7, 0, Math.PI * 2);
-      ctx.fill();
+      // Pulsing Downward Directional Arrows
+      ctx.fillStyle = "#10b981";
+      ctx.font = getGameCanvasFont(11, "bold");
+      ctx.fillText("▼ ▼ ▼ 이 구역으로 안전 진입 (0.7 kts 이하) ▼ ▼ ▼", midX, dockDepth - 10);
+
+      // 3. Dock Gate Entrance Pillars & Floating Lighthouses
+      // Left Pier Head (Port - Red Light)
+      ctx.fillStyle = "#475569";
+      ctx.fillRect(midX - gateW - 16, dockDepth - 8, 18, 26);
       ctx.fillStyle = "#ef4444";
       ctx.beginPath();
-      ctx.arc(midX - gateW, s.dockGateY + 12, 7, 0, Math.PI * 2);
+      ctx.arc(midX - gateW - 7, dockDepth + 18, 8, 0, Math.PI * 2);
       ctx.fill();
+      // Flashing light ring
+      ctx.strokeStyle = "rgba(239, 68, 68, 0.4)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(midX - gateW - 7, dockDepth + 18, 12 + pulsePhase * 3, 0, Math.PI * 2);
+      ctx.stroke();
 
-      // Centerline Dock Approach Guide Laser Line
+      ctx.fillStyle = "#fca5a5";
+      ctx.font = getGameCanvasFont(9, "bold");
+      ctx.fillText("적색 부표 (Port)", midX - gateW - 20, dockDepth + 34);
+
+      // Right Pier Head (Starboard - Green Light)
+      ctx.fillStyle = "#475569";
+      ctx.fillRect(midX + gateW - 2, dockDepth - 8, 18, 26);
+      ctx.fillStyle = "#22c55e";
+      ctx.beginPath();
+      ctx.arc(midX + gateW + 7, dockDepth + 18, 8, 0, Math.PI * 2);
+      ctx.fill();
+      // Flashing light ring
       ctx.strokeStyle = "rgba(34, 197, 94, 0.4)";
       ctx.lineWidth = 2;
-      ctx.setLineDash([10, 10]);
       ctx.beginPath();
-      ctx.moveTo(midX, s.dockGateY);
+      ctx.arc(midX + gateW + 7, dockDepth + 18, 12 + pulsePhase * 3, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "#86efac";
+      ctx.font = getGameCanvasFont(9, "bold");
+      ctx.fillText("녹색 부표 (Stbd)", midX + gateW + 20, dockDepth + 34);
+
+      // 4. Approach Fairway Laser Corridor
+      // Faint green illumination on water channel
+      ctx.fillStyle = "rgba(16, 185, 129, 0.05)";
+      ctx.fillRect(midX - 42, dockDepth, 84, h - dockDepth);
+
+      // Left & Right Laser Corridor Boundary Lines
+      ctx.strokeStyle = "rgba(16, 185, 129, 0.35)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(midX - 42, dockDepth);
+      ctx.lineTo(midX - 42, h);
+      ctx.moveTo(midX + 42, dockDepth);
+      ctx.lineTo(midX + 42, h);
+      ctx.stroke();
+
+      // High-visibility Green Centerline Laser with distance markings
+      ctx.strokeStyle = "#10b981";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 8]);
+      ctx.beginPath();
+      ctx.moveTo(midX, dockDepth);
       ctx.lineTo(midX, h);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Centerline Distance Waypoints
+      ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.font = getGameCanvasFont(9, "bold");
+      ctx.textAlign = "center";
+      for (let distY = dockDepth + 60; distY < h; distY += 75) {
+        const markM = Math.round((distY - dockDepth) * 0.8);
+        ctx.fillText(`접안선 [${markM}m]`, midX, distY - 6);
+      }
+
+      // Floating Live Target Status Banner above dock gate
+      const curBowY = s.ship.y - Math.cos(s.ship.angle) * (s.ship.h / 2);
+      const liveDistM = Math.max(0, Math.round((curBowY - dockDepth) * 0.8));
+
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(midX - 90, dockDepth + 8, 180, 18);
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(midX - 90, dockDepth + 8, 180, 18);
+
+      ctx.fillStyle = "#38bdf8";
+      ctx.font = getGameCanvasFont(10, "bold");
+      ctx.fillText(`도크 입구까지: ${liveDistM}m 남음`, midX, dockDepth + 21);
 
       // Wake particles
       s.wakeParticles.forEach((p) => {
@@ -520,7 +651,7 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
 
       // Ship Bow Name
       ctx.fillStyle = "#facc15";
-      ctx.font = "bold 9px sans-serif";
+      ctx.font = getGameCanvasFont(9, "bold");
       ctx.textAlign = "center";
       ctx.fillText("HD VLCC 300K", 0, -s.ship.h / 2 + 30);
 
@@ -600,7 +731,7 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
   }, [gameState]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-slate-950 text-white rounded-2xl overflow-hidden shadow-2xl border border-slate-800 select-none">
+    <div className="w-full h-full flex flex-col bg-slate-950 text-white rounded-2xl overflow-hidden shadow-2xl border border-slate-800 select-none font-hd">
       {/* Top HUD */}
       <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2">
@@ -623,18 +754,34 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         </div>
 
         {/* Status Indicators */}
-        <div className="flex items-center gap-2 sm:gap-3 text-xs">
+        <div className="flex items-center gap-2 text-xs">
+          {/* Dock Target Distance */}
+          <div className="flex items-center gap-1.5 bg-sky-950/90 px-2.5 py-1 rounded-md border border-sky-600">
+            <span className="text-[10px] text-sky-300 font-bold">도크 거리:</span>
+            <span className="text-xs font-black text-amber-300 tabular-nums">
+              {distToDock}m
+            </span>
+          </div>
+
+          {/* Alignment Status */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-slate-800/90 px-2.5 py-1 rounded-md border border-slate-700">
+            <span className="text-[10px] text-slate-400 font-bold">중앙선:</span>
+            <span className={`text-xs font-black ${alignmentText.includes("양호") ? "text-emerald-400" : "text-amber-400"}`}>
+              {alignmentText}
+            </span>
+          </div>
+
           {/* Approach Speed */}
           <div className="flex items-center gap-1.5 bg-slate-800/90 px-2.5 py-1 rounded-md border border-slate-700">
             <span className="text-[10px] text-slate-400 font-bold">진입 속도:</span>
-            <span className={`text-xs font-black tabular-nums ${approachSpeedKts <= 0.8 ? "text-emerald-400" : "text-rose-400 animate-pulse"}`}>
+            <span className={`text-xs font-black tabular-nums ${approachSpeedKts <= 0.7 ? "text-emerald-400" : "text-rose-400 animate-pulse"}`}>
               {approachSpeedKts} kts
             </span>
           </div>
 
           {/* Hull Damage */}
           <div className="flex items-center gap-1.5 bg-slate-800/90 px-2.5 py-1 rounded-md border border-slate-700">
-            <span className="text-[10px] text-slate-400 font-bold">선체 손상:</span>
+            <span className="text-[10px] text-slate-400 font-bold">손상:</span>
             <span className={`text-xs font-black tabular-nums ${shipDamage > 50 ? "text-rose-400 animate-pulse" : shipDamage > 20 ? "text-amber-400" : "text-emerald-400"}`}>
               {shipDamage}%
             </span>
@@ -642,7 +789,7 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
 
           {/* Time Limit */}
           <div className="flex items-center gap-1.5 bg-slate-800/90 px-2.5 py-1 rounded-md border border-slate-700">
-            <span className="text-[10px] text-slate-400 font-bold">제한 시간:</span>
+            <span className="text-[10px] text-slate-400 font-bold">시간:</span>
             <span className={`text-xs font-black ${timeLeft <= 8 ? "text-rose-400" : "text-cyan-300"}`}>
               {timeLeft}s
             </span>
@@ -673,16 +820,19 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         {/* READY Overlay */}
         {gameState === "READY" && (
           <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20">
-            <div className="w-14 h-14 rounded-2xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center mb-3 text-sky-400 shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center mb-2.5 text-sky-400 shadow-lg">
               <Compass className="w-8 h-8" />
             </div>
-            <h3 className="text-lg sm:text-xl font-black text-white mb-2">
+            <h3 className="text-base sm:text-lg font-black text-white mb-1.5">
               영암호 초대형 VLCC 예인선 도크 접안 파일럿
             </h3>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-md mb-4 leading-relaxed">
-              자력 항해가 불가능한 30만 톤급 초대형 선박이 조류에 밀려 안벽으로 표류하고 있습니다!<br />
-              예인선을 선수에 접근시켜 <strong>초강력 예인줄(Tow Hawser)을 체결</strong>하고,
-              선체를 안전하게 회전 및 <strong>0.8노트 이하로 감속</strong>시켜 도크 중앙선에 접안시키세요.
+            <div className="bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-3.5 py-1.5 rounded-xl text-xs font-bold mb-3 max-w-md">
+              🎯 최종 접안 목표: 상단 중앙의 [제1드라이도크 녹색 목표 실루엣] 안으로 배를 안착시키세요!
+            </div>
+            <p className="text-xs text-slate-300 max-w-md mb-4 leading-relaxed font-normal">
+              1. 예인선을 대형 선박의 선수(머리)에 접근시켜 <strong>예인줄을 체결</strong>하세요.<br />
+              2. 중앙 녹색 가이드 라인을 따라 선박을 상단 <strong>[제1드라이도크 슬립]</strong>으로 유도하세요.<br />
+              3. 진입 시 역추진으로 속도를 <strong>0.7노트 이하</strong>로 감속해야 안전 접안이 완료됩니다.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-slate-400 mb-6 bg-slate-900/90 px-4 py-2.5 rounded-xl border border-slate-800">

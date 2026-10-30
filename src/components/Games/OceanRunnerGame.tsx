@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Volume2, VolumeX, Compass, Zap, Gauge, ArrowLeft, ArrowRight, Award, ShieldAlert } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
+import { getGameCanvasFont } from "../../lib/gameFonts";
 
 interface OceanRunnerGameProps {
   onFinish: (score: number) => void;
@@ -462,7 +463,7 @@ export default function OceanRunnerGame({ onFinish }: OceanRunnerGameProps) {
 
           // Gate Label
           ctx.fillStyle = "#4ade80";
-          ctx.font = "bold 10px monospace";
+          ctx.font = getGameCanvasFont(10, "bold", true);
           ctx.textAlign = "center";
           ctx.fillText("SPEED GATE", 0, -8);
         } else if (obs.type === "fuel") {

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Volume2, VolumeX, ShieldCheck, Anchor, Waves, AlertTriangle, CheckCircle2, Gauge, ArrowDown, ArrowUp } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
+import { getGameCanvasFont } from "../../lib/gameFonts";
 
 interface AnchorMooringGameProps {
   onFinish: (score: number) => void;
@@ -342,7 +343,7 @@ export default function AnchorMooringGame({ onFinish }: AnchorMooringGameProps) 
         ctx.fill();
 
         ctx.fillStyle = "#94a3b8";
-        ctx.font = "bold 10px sans-serif";
+        ctx.font = getGameCanvasFont(10, "bold");
         ctx.textAlign = "center";
         ctx.fillText(`볼라드 #${line.id + 1}`, bx, by - 12);
       });
@@ -446,7 +447,7 @@ export default function AnchorMooringGame({ onFinish }: AnchorMooringGameProps) 
 
       // Ship Name
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 10px sans-serif";
+      ctx.font = getGameCanvasFont(10, "bold");
       ctx.textAlign = "center";
       ctx.fillText("HD SAMHO CONTAINER 01", 0, 4);
 

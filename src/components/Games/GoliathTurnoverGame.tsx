@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, Volume2, VolumeX, ArrowLeftRight, Award, AlertTriangle, ShieldCheck, ArrowUp, ArrowDown, ChevronsDown } from "lucide-react";
 import confetti from "canvas-confetti";
 import { gameAudio } from "../../lib/gameSounds";
+import { getGameCanvasFont } from "../../lib/gameFonts";
 
 interface GoliathTurnoverGameProps {
   onFinish: (score: number) => void;
@@ -313,7 +314,7 @@ export default function GoliathTurnoverGame({ onFinish }: GoliathTurnoverGamePro
 
       // Gantry Crane Logo
       ctx.fillStyle = "#002c6c";
-      ctx.font = "bold 11px sans-serif";
+      ctx.font = getGameCanvasFont(11, "bold");
       ctx.textAlign = "center";
       ctx.fillText("HD HYUNDAI GOLIATH CRANE 1200T", w / 2, gantryY - 1);
 
@@ -325,7 +326,7 @@ export default function GoliathTurnoverGame({ onFinish }: GoliathTurnoverGamePro
       ctx.fillStyle = "#1e293b";
       ctx.fillRect(t1X - 22, gantryY + 8, 44, 16);
       ctx.fillStyle = "#38bdf8";
-      ctx.font = "bold 9px sans-serif";
+      ctx.font = getGameCanvasFont(9, "bold");
       ctx.fillText("주권 (H1)", t1X, gantryY + 20);
 
       // Trolley 2 (Aux Hoist)
@@ -398,7 +399,7 @@ export default function GoliathTurnoverGame({ onFinish }: GoliathTurnoverGamePro
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.fillStyle = "#000000";
-      ctx.font = "bold 7px sans-serif";
+      ctx.font = getGameCanvasFont(7, "black");
       ctx.fillText("CG", 0, 2.5);
 
       // 180° Target Touchdown Green Flange
@@ -424,14 +425,14 @@ export default function GoliathTurnoverGame({ onFinish }: GoliathTurnoverGamePro
       ctx.strokeRect(w - 145, 62, 135, 68);
 
       ctx.fillStyle = "#94a3b8";
-      ctx.font = "10px sans-serif";
+      ctx.font = getGameCanvasFont(10, "medium");
       ctx.textAlign = "left";
       ctx.fillText("현재 반전 각도:", w - 135, 80);
       ctx.fillStyle = Math.abs(s.angle - 180) <= 5.5 ? "#4ade80" : "#fbbf24";
-      ctx.font = "bold 20px monospace";
+      ctx.font = getGameCanvasFont(20, "black", true);
       ctx.fillText(`${s.angle.toFixed(1)}°`, w - 135, 104);
       ctx.fillStyle = "#38bdf8";
-      ctx.font = "9px sans-serif";
+      ctx.font = getGameCanvasFont(9, "bold");
       ctx.fillText("목표: 180.0° 완착", w - 135, 120);
 
       ctx.restore(); // Restore DPR scale
