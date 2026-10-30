@@ -10,13 +10,14 @@ import {
   Medal,
   Waves,
   Cog,
-  Brush,
   Scan,
   Activity,
   ArrowLeftRight,
-  ShieldCheck,
   Building2,
   Wrench,
+  RotateCw,
+  Crown,
+  Sparkles,
 } from "lucide-react";
 import { db } from "../../lib/firebase";
 import {
@@ -60,12 +61,27 @@ const getMonthString = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
+const GAME_INFO: Record<string, { title: string; category: string; badge: string }> = {
+  crane: { title: "골리앗 크레인 탑재", category: "중장비 & 선체 건조", badge: "대표작" },
+  turnover: { title: "900T 블록 턴오버", category: "중장비 & 선체 건조", badge: "물리 연산" },
+  welding: { title: "용접 마스터: 비드", category: "중장비 & 선체 건조", badge: "정밀" },
+  pipe: { title: "기관실 복합 배관 CAD", category: "중장비 & 선체 건조", badge: "신규" },
+  bolting: { title: "엔진·축계 유압 볼팅", category: "중장비 & 선체 건조", badge: "쾌속 리듬" },
+  tugboat: { title: "영암호 예인선 파일럿", category: "도크 진수 & 시운전 작전", badge: "조종술" },
+  voyager: { title: "영암만 Sea Trial 시운전", category: "도크 진수 & 시운전 작전", badge: "쾌속" },
+  dockwater: { title: "드라이도크 안전 진수식", category: "도크 진수 & 시운전 작전", badge: "부력 수위" },
+  mooring: { title: "안벽 계류 윈치 & 볼라드", category: "도크 진수 & 시운전 작전", badge: "신규" },
+  propeller: { title: "황동 프로펠러 얼라인먼트", category: "도크 진수 & 시운전 작전", badge: "정밀" },
+  lnginspect: { title: "LNG 멤브레인 레이저 검사", category: "도크 진수 & 시운전 작전", badge: "초정밀 NDT" },
+};
+
 export default function GamesModal({ onClose }: GamesModalProps) {
   const { currentUser, members } = useAppStore();
   const [activeGame, setActiveGame] = useState<string>("crane");
   const [leaderboard, setLeaderboard] = useState<GameScore[]>([]);
   const [loadingBoard, setLoadingBoard] = useState(false);
-  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isMobileBoardOpen, setIsMobileBoardOpen] = useState(false);
 
   /* Derive player name from logged-in user */
   const currentMember = members.find((m) => m.email === currentUser?.email);
@@ -129,6 +145,12 @@ export default function GamesModal({ onClose }: GamesModalProps) {
     }
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchLeaderboard(activeGame);
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
   const saveScore = async (score: number) => {
     try {
       const docId = currentUser?.email || playerName;
@@ -154,13 +176,20 @@ export default function GamesModal({ onClose }: GamesModalProps) {
     return `${val.toLocaleString()}점`;
   };
 
+  // Find user's own ranking in current leaderboard
+  const myRankIndex = leaderboard.findIndex(
+    (s) => s.playerName === playerName || (currentUser?.email && s.id === currentUser.email)
+  );
+  const myRecord = myRankIndex !== -1 ? leaderboard[myRankIndex] : null;
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 lg:p-6 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-5xl xl:max-w-6xl flex flex-col lg:flex-row overflow-hidden border border-gray-200 h-[88vh] max-h-[760px] min-h-[500px] font-hd">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-3 lg:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      {/* Expanded modal width: max-w-[98vw] 2xl:max-w-[1580px] xl:max-w-[1460px] lg:max-w-[1340px] to accommodate fixed ranking on the right without invading game screen */}
+      <div className="bg-slate-900 rounded-[22px] shadow-2xl w-full max-w-[98vw] 2xl:max-w-[1580px] xl:max-w-[1460px] lg:max-w-[1340px] flex flex-col lg:flex-row overflow-hidden border border-slate-700/80 h-[92vh] max-h-[820px] min-h-[560px] font-hd">
         {/* Compact Sidebar */}
-        <div className="w-full lg:w-52 xl:w-56 bg-slate-50 lg:border-r border-b lg:border-b-0 border-gray-200 p-2.5 flex flex-col shrink-0 lg:overflow-y-auto">
+        <div className="w-full lg:w-48 xl:w-52 bg-slate-50 lg:border-r border-b lg:border-b-0 border-gray-200 p-2.5 flex flex-col shrink-0 lg:overflow-y-auto">
           <div className="flex justify-between items-center mb-1 lg:mb-3">
-            <h2 className="text-[14px] lg:text-[17px] font-black text-[#002C6C] flex items-center gap-1.5 tracking-tight">
+            <h2 className="text-[14px] lg:text-[16px] font-black text-[#002C6C] flex items-center gap-1.5 tracking-tight">
               <Building2 className="w-4 h-4 text-amber-500" />
               HD조선소 아케이드
             </h2>
@@ -286,36 +315,28 @@ export default function GamesModal({ onClose }: GamesModalProps) {
         </div>
 
         {/* Main Game Screen */}
-        <div className="flex-1 flex flex-col bg-slate-900 relative h-full min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col bg-slate-950 relative h-full min-h-0 min-w-0 overflow-hidden">
           {/* Top Control Bar for Large Screen */}
-          <div className="hidden lg:flex items-center justify-between px-3.5 py-2 bg-slate-950/70 border-b border-slate-800 z-30 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-300">
+          <div className="hidden lg:flex items-center justify-between px-4 py-2 bg-slate-950/90 border-b border-slate-800 z-30 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-xs font-black text-white">
                 HD현대삼호 조선소 아케이드
+              </span>
+              <span className="text-slate-600">|</span>
+              <span className="text-xs font-bold text-amber-400">
+                {GAME_INFO[activeGame]?.title || "게임"}
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                {GAME_INFO[activeGame]?.badge}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsLeaderboardOpen(!isLeaderboardOpen)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
-                  isLeaderboardOpen
-                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                    : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
-                }`}
-                title="월간 랭킹 패널 토글"
-              >
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] font-bold text-amber-300">
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                {isLeaderboardOpen ? "랭킹 닫기" : "월간 랭킹"}
-              </button>
-
-              <button
-                onClick={onClose}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 shadow-sm border border-slate-700 transition-all active:scale-95"
-                title="닫기"
-              >
-                <X className="w-4 h-4" />
-              </button>
+                <span>월간 랭킹 순위 화면 고정</span>
+              </div>
             </div>
           </div>
 
@@ -334,83 +355,182 @@ export default function GamesModal({ onClose }: GamesModalProps) {
           </div>
         </div>
 
-        {/* Monthly Leaderboard Panel */}
-        <div
-          className={`w-full lg:w-60 xl:w-68 bg-[#121824] text-white flex flex-col shrink-0 border-l border-slate-800 ${
-            isLeaderboardOpen ? "flex" : "hidden"
-          }`}
-        >
-          <button
-            onClick={() => setIsLeaderboardOpen(!isLeaderboardOpen)}
-            className="lg:hidden w-full flex items-center justify-between p-2.5 sm:p-3 bg-slate-900 border-t border-slate-800"
-          >
-            <div className="font-bold text-[13px] flex items-center gap-1.5 text-amber-400">
-              <Trophy className="w-4 h-4 fill-current" /> 월간 명예의 전당
-            </div>
-            {isLeaderboardOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
+        {/* Monthly Leaderboard Panel - Fixed & Always Visible on the Right */}
+        <div className="w-full lg:w-72 xl:w-80 2xl:w-84 bg-[#0d1424] text-white flex flex-col shrink-0 border-t lg:border-t-0 lg:border-l border-slate-800 shadow-xl overflow-hidden">
+          {/* Mobile Collapse Toggle Header */}
+          <div className="lg:hidden flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800">
+            <button
+              onClick={() => setIsMobileBoardOpen(!isMobileBoardOpen)}
+              className="flex items-center gap-1.5 text-xs font-bold text-amber-400"
+            >
+              <Trophy className="w-4 h-4 fill-amber-400 text-amber-400" />
+              <span>월간 랭킹 순위 ({new Date().getMonth() + 1}월)</span>
+              {isMobileBoardOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={loadingBoard || isRefreshing}
+              className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+              title="새로고침"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-amber-400" : ""}`} />
+            </button>
+          </div>
 
-          <div className="flex flex-col flex-1 p-3 lg:p-4 h-[240px] lg:h-auto overflow-hidden">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
-              <h3 className="text-[14px] font-black text-white flex items-center gap-2">
-                <Medal className="w-4 h-4 text-amber-400" />
-                월간 명예의 전당
-              </h3>
-              <span className="text-[10px] font-bold text-gray-400 bg-white/10 px-2 py-0.5 rounded-full">
-                {new Date().getMonth() + 1}월 랭킹
-              </span>
+          <div className={`flex-col flex-1 p-3 lg:p-4 min-h-0 overflow-hidden ${isMobileBoardOpen ? "flex" : "hidden lg:flex"}`}>
+            {/* Header */}
+            <div className="flex items-start justify-between mb-2.5 pb-2.5 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-lg bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
+                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  </div>
+                  <h3 className="text-sm font-black text-white tracking-tight">
+                    월간 랭킹 순위
+                  </h3>
+                  <span className="text-[10px] font-black text-amber-400 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded-full">
+                    {new Date().getMonth() + 1}월
+                  </span>
+                </div>
+                <div className="text-[11px] font-bold text-slate-400 mt-1 flex items-center gap-1">
+                  <span className="text-sky-400 truncate max-w-[130px]">{GAME_INFO[activeGame]?.title || "게임"}</span>
+                  <span className="text-slate-600">|</span>
+                  <span className="flex items-center gap-1 text-[10px] text-emerald-400 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    실시간 고정 집계
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleRefresh}
+                  disabled={loadingBoard || isRefreshing}
+                  className="p-1.5 bg-slate-800/80 hover:bg-slate-700/80 active:scale-95 rounded-lg text-slate-400 hover:text-amber-300 border border-slate-700 transition-all cursor-pointer"
+                  title="랭킹 새로고침"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-amber-400" : ""}`} />
+                </button>
+                <button
+                  onClick={onClose}
+                  className="hidden lg:flex p-1.5 bg-slate-800/80 hover:bg-rose-500/20 hover:text-rose-300 active:scale-95 rounded-lg text-slate-400 border border-slate-700 transition-all cursor-pointer"
+                  title="닫기"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-2">
+            {/* Current Player Status Card */}
+            <div className="mb-2.5 p-2.5 rounded-xl bg-gradient-to-r from-blue-950/60 to-slate-900/80 border border-blue-500/20 shadow-sm shrink-0">
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-slate-400 font-bold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  내 이번 달 기록
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 truncate max-w-[110px]">
+                  {playerName}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-white">
+                  {myRecord ? (
+                    <span className="flex items-center gap-1 text-amber-300">
+                      {myRankIndex === 0 && <Crown className="w-3.5 h-3.5 text-amber-400" />}
+                      {myRankIndex + 1}위
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 font-normal">미기록</span>
+                  )}
+                </span>
+                <span className="text-xs font-black text-emerald-400 tabular-nums">
+                  {myRecord ? getScoreFormat(activeGame, myRecord.score) : "게임 도전 대기"}
+                </span>
+              </div>
+            </div>
+
+            {/* Leaderboard List */}
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-1.5 pr-0.5">
               {loadingBoard ? (
-                <div className="text-[13px] text-gray-400 text-center py-8">기록 불러오는 중...</div>
+                <div className="text-xs text-slate-400 text-center py-10 flex flex-col items-center gap-2">
+                  <RotateCw className="w-5 h-5 text-amber-400 animate-spin" />
+                  <span>실시간 기록 불러오는 중...</span>
+                </div>
               ) : leaderboard.length === 0 ? (
-                <div className="text-[13px] text-gray-400 text-center py-8 flex flex-col items-center">
-                  <Trophy className="w-8 h-8 text-gray-600 mb-2 stroke-1" />
-                  첫 번째 랭커에 도전해보세요!
+                <div className="text-xs text-slate-400 text-center py-10 flex flex-col items-center">
+                  <Trophy className="w-8 h-8 text-slate-600 mb-2 stroke-1" />
+                  <span className="font-bold text-slate-300">이번 달 첫 랭커에 도전하세요!</span>
+                  <span className="text-[11px] text-slate-500 mt-1">게임을 완료하면 점수가 자동 등록됩니다.</span>
                 </div>
               ) : (
-                leaderboard.map((s, i) => (
-                  <div
-                    key={s.id}
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-[12px] transition-colors border ${
-                      i === 0
-                        ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
-                        : i === 1
-                        ? "bg-slate-300/10 border-slate-300/20 text-slate-200"
-                        : i === 2
-                        ? "bg-amber-700/15 border-amber-700/30 text-amber-400"
-                        : "bg-white/5 border-white/5 text-gray-300"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 overflow-hidden">
-                      <span
-                        className={`font-black text-[13px] w-5 text-center ${
-                          i === 0
-                            ? "text-amber-400"
-                            : i === 1
-                            ? "text-slate-300"
-                            : i === 2
-                            ? "text-amber-600"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
-                      </span>
-                      <span
-                        className="text-[13px] font-bold truncate max-w-[100px]"
-                        title={displayPlayerName(s.playerName)}
-                      >
-                        {displayPlayerName(s.playerName)}
-                      </span>
-                    </div>
+                leaderboard.map((s, i) => {
+                  const isMe = s.playerName === playerName || (currentUser?.email && s.id === currentUser.email);
+                  return (
+                    <div
+                      key={s.id}
+                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl transition-all border ${
+                        isMe
+                          ? "ring-1 ring-amber-400/50 bg-amber-500/10 border-amber-500/30"
+                          : i === 0
+                          ? "bg-gradient-to-r from-amber-500/15 to-amber-900/10 border-amber-500/30 text-amber-200"
+                          : i === 1
+                          ? "bg-slate-300/10 border-slate-300/20 text-slate-200"
+                          : i === 2
+                          ? "bg-amber-800/15 border-amber-700/25 text-amber-300"
+                          : "bg-slate-900/40 border-slate-800 text-slate-300 hover:bg-slate-800/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                        <span
+                          className={`font-black text-xs w-5 text-center shrink-0 ${
+                            i === 0
+                              ? "text-amber-400"
+                              : i === 1
+                              ? "text-slate-300"
+                              : i === 2
+                              ? "text-amber-600"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
+                        </span>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span
+                              className={`text-xs font-bold truncate max-w-[95px] xl:max-w-[110px] ${
+                                isMe ? "text-amber-300 font-black" : "text-slate-200"
+                              }`}
+                              title={displayPlayerName(s.playerName)}
+                            >
+                              {displayPlayerName(s.playerName)}
+                            </span>
+                            {isMe && (
+                              <span className="text-[9px] bg-amber-400 text-slate-950 px-1 rounded font-black shrink-0">
+                                나
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[9px] text-slate-500">
+                            {displayPlayerName(s.playerName).length > 4 ? "HD현대삼호" : "조선사업부"}
+                          </span>
+                        </div>
+                      </div>
 
-                    <span className="text-[13px] font-black text-emerald-400 shrink-0 ml-2 tabular-nums">
-                      {getScoreFormat(activeGame, s.score)}
-                    </span>
-                  </div>
-                ))
+                      <div className="flex flex-col items-end shrink-0 ml-1.5">
+                        <span className="text-xs font-black text-emerald-400 tabular-nums">
+                          {getScoreFormat(activeGame, s.score)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
               )}
+            </div>
+
+            {/* Bottom Info Banner */}
+            <div className="mt-2.5 pt-2 border-t border-slate-800/80 text-[10px] text-slate-500 flex items-center justify-between shrink-0">
+              <span className="truncate">매월 말일 24:00 마감</span>
+              <span className="text-amber-400/80 font-bold shrink-0">동반성장 마일리지</span>
             </div>
           </div>
         </div>

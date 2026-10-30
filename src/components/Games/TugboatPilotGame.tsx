@@ -998,6 +998,7 @@ export default function TugboatPilotGame({ onFinish }: TugboatPilotGameProps) {
         ctx.restore();
       };
 
+      const currentActive = activeTugRef.current;
       renderTug(s.tugBow, currentActive === "BOW");
       renderTug(s.tugStern, currentActive === "STERN");
 
