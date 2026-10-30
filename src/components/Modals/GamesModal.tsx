@@ -155,13 +155,13 @@ export default function GamesModal({ onClose }: GamesModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-1 sm:p-3 lg:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white rounded-[16px] lg:rounded-[28px] shadow-2xl w-full max-w-7xl flex flex-col lg:flex-row overflow-hidden border border-gray-200 h-[98vh] lg:h-[92vh] max-h-[98vh] lg:max-h-[92vh]">
-        {/* Sidebar */}
-        <div className="w-full lg:w-64 xl:w-72 bg-slate-50 lg:border-r border-b lg:border-b-0 border-gray-200 p-2 sm:p-3 lg:p-5 flex flex-col shrink-0 lg:overflow-y-auto">
-          <div className="flex justify-between items-center mb-1.5 lg:mb-4">
-            <h2 className="text-[15px] lg:text-[19px] font-black text-[#002C6C] flex items-center gap-1.5 lg:gap-2 tracking-tight">
-              <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-amber-500" />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-1 sm:p-2 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-white rounded-[16px] lg:rounded-[24px] shadow-2xl w-full max-w-[99vw] xl:max-w-[1880px] flex flex-col lg:flex-row overflow-hidden border border-gray-200 h-[97vh] max-h-[98vh]">
+        {/* Compact Sidebar */}
+        <div className="w-full lg:w-52 xl:w-56 bg-slate-50 lg:border-r border-b lg:border-b-0 border-gray-200 p-2 sm:p-2.5 flex flex-col shrink-0 lg:overflow-y-auto">
+          <div className="flex justify-between items-center mb-1 lg:mb-3">
+            <h2 className="text-[14px] lg:text-[17px] font-black text-[#002C6C] flex items-center gap-1.5 tracking-tight">
+              <Building2 className="w-4 h-4 text-amber-500" />
               HD조선소 아케이드
             </h2>
             <button
@@ -173,14 +173,14 @@ export default function GamesModal({ onClose }: GamesModalProps) {
           </div>
 
           {/* Game Selection Tabs */}
-          <div className="flex flex-row lg:flex-col gap-1 lg:gap-1.5 mb-1 lg:mb-6 overflow-x-auto custom-scrollbar pb-1 lg:pb-0">
+          <div className="flex flex-row lg:flex-col gap-1 lg:gap-1.5 mb-1 lg:mb-4 overflow-x-auto custom-scrollbar pb-1 lg:pb-0">
             {/* Category 1: 중장비 & 건조 엔지니어링 */}
-            <div className="hidden lg:block text-[11px] font-black text-slate-400 px-3 py-1 uppercase tracking-wider">
+            <div className="hidden lg:block text-[10px] font-black text-slate-400 px-2 py-0.5 uppercase tracking-wider">
               중장비 & 선체 건조
             </div>
             <GameTab
               id="crane"
-              icon={<Anchor className="w-4 h-4 text-amber-500" />}
+              icon={<Anchor className="w-3.5 h-3.5 text-amber-500" />}
               label="골리앗 크레인 탑재"
               badge="대표작"
               active={activeGame}
@@ -188,7 +188,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
             <GameTab
               id="turnover"
-              icon={<ArrowLeftRight className="w-4 h-4 text-orange-500" />}
+              icon={<ArrowLeftRight className="w-3.5 h-3.5 text-orange-500" />}
               label="900T 블록 턴오버"
               badge="물리 연산"
               active={activeGame}
@@ -196,7 +196,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
             <GameTab
               id="welding"
-              icon={<Flame className="w-4 h-4 text-rose-500" />}
+              icon={<Flame className="w-3.5 h-3.5 text-rose-500" />}
               label="용접 마스터: 비드"
               badge="정밀"
               active={activeGame}
@@ -204,7 +204,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
             <GameTab
               id="pipe"
-              icon={<Activity className="w-4 h-4 text-cyan-500" />}
+              icon={<Activity className="w-3.5 h-3.5 text-cyan-500" />}
               label="기관실 복합 배관 CAD"
               badge="신규"
               active={activeGame}
@@ -212,7 +212,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
             <GameTab
               id="bolting"
-              icon={<Wrench className="w-4 h-4 text-sky-500" />}
+              icon={<Wrench className="w-3.5 h-3.5 text-sky-500" />}
               label="엔진·축계 유압 볼팅"
               badge="쾌속 리듬"
               active={activeGame}
@@ -220,12 +220,12 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
 
             {/* Category 2: 시운전 & 도크 항만 작전 */}
-            <div className="hidden lg:block text-[11px] font-black text-slate-400 px-3 pt-3 pb-1 uppercase tracking-wider border-t border-slate-200 mt-2">
+            <div className="hidden lg:block text-[10px] font-black text-slate-400 px-2 pt-2 pb-0.5 uppercase tracking-wider border-t border-slate-200 mt-1">
               도크 진수 & 시운전 작전
             </div>
             <GameTab
               id="tugboat"
-              icon={<Compass className="w-4 h-4 text-sky-500" />}
+              icon={<Compass className="w-3.5 h-3.5 text-sky-500" />}
               label="영암호 예인선 파일럿"
               badge="조종술"
               active={activeGame}
@@ -233,7 +233,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
             <GameTab
               id="voyager"
-              icon={<Compass className="w-4 h-4 text-indigo-500" />}
+              icon={<Compass className="w-3.5 h-3.5 text-indigo-500" />}
               label="영암만 Sea Trial 시운전"
               badge="쾌속"
               active={activeGame}
@@ -241,7 +241,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
             <GameTab
               id="dockwater"
-              icon={<Waves className="w-4 h-4 text-cyan-500" />}
+              icon={<Waves className="w-3.5 h-3.5 text-cyan-500" />}
               label="드라이도크 안전 진수식"
               badge="부력 수위"
               active={activeGame}
@@ -249,7 +249,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
             <GameTab
               id="mooring"
-              icon={<Anchor className="w-4 h-4 text-blue-500" />}
+              icon={<Anchor className="w-3.5 h-3.5 text-blue-500" />}
               label="안벽 계류 윈치 & 볼라드"
               badge="신규"
               active={activeGame}
@@ -257,7 +257,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
             <GameTab
               id="propeller"
-              icon={<Cog className="w-4 h-4 text-yellow-500" />}
+              icon={<Cog className="w-3.5 h-3.5 text-yellow-500" />}
               label="황동 프로펠러 얼라인먼트"
               badge="정밀"
               active={activeGame}
@@ -265,7 +265,7 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             />
             <GameTab
               id="lnginspect"
-              icon={<Scan className="w-4 h-4 text-emerald-500" />}
+              icon={<Scan className="w-3.5 h-3.5 text-emerald-500" />}
               label="LNG 멤브레인 레이저 검사"
               badge="초정밀 NDT"
               active={activeGame}
@@ -274,11 +274,11 @@ export default function GamesModal({ onClose }: GamesModalProps) {
           </div>
 
           {/* Current Player Profile Footer */}
-          <div className="mt-auto hidden lg:block bg-white p-3.5 rounded-[14px] border border-gray-200 shadow-sm">
-            <div className="text-[11px] font-bold text-gray-400 mb-0.5">현재 플레이어</div>
-            <div className="text-[14px] font-black text-[#1D1D1F] flex items-center justify-between">
+          <div className="mt-auto hidden lg:block bg-white p-2.5 rounded-[12px] border border-gray-200 shadow-sm">
+            <div className="text-[10px] font-bold text-gray-400 mb-0.5">현재 플레이어</div>
+            <div className="text-[13px] font-black text-[#1D1D1F] flex items-center justify-between">
               <span className="truncate">{playerName}</span>
-              <span className="text-[10px] bg-blue-100 text-[#007AFF] px-2 py-0.5 rounded-full font-bold">
+              <span className="text-[9px] bg-blue-100 text-[#007AFF] px-1.5 py-0.5 rounded-full font-bold">
                 동반성장부
               </span>
             </div>
@@ -287,15 +287,39 @@ export default function GamesModal({ onClose }: GamesModalProps) {
 
         {/* Main Game Screen */}
         <div className="flex-1 flex flex-col bg-slate-900 relative h-full min-h-0 overflow-hidden">
-          <button
-            onClick={onClose}
-            className="hidden lg:flex absolute top-3 right-3 p-2 bg-slate-800/90 hover:bg-slate-700 rounded-full text-slate-300 shadow-sm border border-slate-700 transition-all z-30 active:scale-95"
-            title="닫기"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {/* Top Control Bar for Large Screen */}
+          <div className="hidden lg:flex items-center justify-between px-3 py-1.5 bg-slate-950/70 border-b border-slate-800 z-30 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-300">
+                화면 최적화 모드 (전체 너비 가동)
+              </span>
+            </div>
 
-          <div className="flex-1 p-1 sm:p-2 lg:p-3 flex flex-col items-center justify-center relative h-full min-h-0 w-full overflow-hidden font-hd">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsLeaderboardOpen(!isLeaderboardOpen)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
+                  isLeaderboardOpen
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
+                }`}
+                title="월간 랭킹 패널 토글"
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                {isLeaderboardOpen ? "월간 랭킹 접기 [화면 극대화]" : "월간 랭킹 보기"}
+              </button>
+
+              <button
+                onClick={onClose}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 shadow-sm border border-slate-700 transition-all active:scale-95"
+                title="닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 p-0.5 sm:p-1 flex flex-col items-center justify-center relative h-full min-h-0 w-full overflow-hidden font-hd">
             {activeGame === "crane" && <CraneStackGame onFinish={saveScore} />}
             {activeGame === "turnover" && <GoliathTurnoverGame onFinish={saveScore} />}
             {activeGame === "welding" && <WeldingMasterGame onFinish={saveScore} />}
@@ -311,7 +335,11 @@ export default function GamesModal({ onClose }: GamesModalProps) {
         </div>
 
         {/* Monthly Leaderboard Panel */}
-        <div className="w-full lg:w-64 xl:w-72 bg-[#121824] text-white flex flex-col shrink-0 border-l border-slate-800">
+        <div
+          className={`w-full lg:w-60 xl:w-68 bg-[#121824] text-white flex flex-col shrink-0 border-l border-slate-800 ${
+            isLeaderboardOpen ? "flex" : "hidden"
+          }`}
+        >
           <button
             onClick={() => setIsLeaderboardOpen(!isLeaderboardOpen)}
             className="lg:hidden w-full flex items-center justify-between p-2.5 sm:p-3 bg-slate-900 border-t border-slate-800"
@@ -322,11 +350,9 @@ export default function GamesModal({ onClose }: GamesModalProps) {
             {isLeaderboardOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
 
-          <div
-            className={`${isLeaderboardOpen ? "flex" : "hidden"} lg:flex flex-col flex-1 p-3 lg:p-5 h-[240px] lg:h-auto overflow-hidden`}
-          >
-            <div className="hidden lg:flex items-center justify-between mb-4 pb-2 border-b border-white/10">
-              <h3 className="text-[15px] font-black text-white flex items-center gap-2">
+          <div className="flex flex-col flex-1 p-3 lg:p-4 h-[240px] lg:h-auto overflow-hidden">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
+              <h3 className="text-[14px] font-black text-white flex items-center gap-2">
                 <Medal className="w-4 h-4 text-amber-400" />
                 월간 명예의 전당
               </h3>
